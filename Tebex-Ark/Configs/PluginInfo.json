@@ -1,0 +1,7 @@
+{
+  "FullName":"Tebex-Ark",
+  "Description":"Official ArkServerApi plugin for the Tebex server monetization platform",
+  "Version":1.0,
+  "MinApiVersion":2.3,
+  "ResourceId":9
+}
