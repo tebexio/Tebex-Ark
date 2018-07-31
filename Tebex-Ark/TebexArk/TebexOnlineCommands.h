@@ -66,8 +66,6 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 
 	player->GetPlayerCharacterName(playerName);
 
-	plugin->logWarning(*playerName);
-
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
 	}
