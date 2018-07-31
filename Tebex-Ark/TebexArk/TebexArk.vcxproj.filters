@@ -53,11 +53,11 @@
     <ClInclude Include="TebexOfflineCommands.h">
       <Filter>Source Files\commands</Filter>
     </ClInclude>
-    <ClInclude Include="TebexDeleteCommands.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TebexOnlineCommands.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="TebexDeleteCommands.h">
+      <Filter>Source Files\commands</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

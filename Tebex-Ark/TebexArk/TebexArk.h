@@ -25,6 +25,7 @@ class TebexArk
 		void logWarning(FString message);
 		void logError(FString message);
 		void setWebstore(json json);
+		WebstoreInfo getWebstore();
 		Config getConfig();
 		void setConfig(std::string key, std::string value);
 		void readConfig();
@@ -69,6 +70,10 @@ void TebexArk::setWebstore(json json) {
 
 }
 
+WebstoreInfo TebexArk::getWebstore() {
+	return webstoreInfo;
+}
+
 Config TebexArk::getConfig()
 {
 	return config;
@@ -84,8 +89,10 @@ void TebexArk::setConfig(std::string key, std::string value) {
 
 void TebexArk::saveConfig()
 {
-	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/TebexArk/config.json";
+	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
 	json configJson;
+
+	logWarning(FString::Format("Save config to {0}", config_path));
 
 	configJson["baseUrl"] = config.baseUrl.ToString();
 	configJson["buyCommand"] = config.buyCommand.ToString();
@@ -100,7 +107,7 @@ void TebexArk::saveConfig()
 
 void TebexArk::readConfig()
 {
-	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "/ArkApi/Plugins/TebexArk/config.json";
+	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
 	std::fstream configFile;
 	configFile.open(config_path);
 
