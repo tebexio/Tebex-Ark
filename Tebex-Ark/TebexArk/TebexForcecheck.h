@@ -65,7 +65,6 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 		}
 
 		if (!json["players"].is_null() && json["players"].size() > 0) {
-			plugin->logWarning("Process player commands....");
 			int playerCnt = 0;
 			while (playerCnt < json["players"].size()) {
 				auto player = json["players"][playerCnt];
@@ -76,9 +75,6 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 				if (targetPlayer != nullptr) {
 					plugin->logWarning(FString::Format("Process commands for {0}", player["name"].get<std::string>()));
 					TebexOnlineCommands::Call(plugin, player["id"].get<int>(), player["uuid"].get<std::string>());
-				}
-				else {
-					plugin->logWarning(FString::Format("{0} is not online", player["name"].get<std::string>()));
 				}
 				playerCnt++;
 			}
