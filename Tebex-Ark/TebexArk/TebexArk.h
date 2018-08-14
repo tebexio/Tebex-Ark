@@ -31,7 +31,7 @@ class TebexArk
 		void readConfig();
 		void setNextCheck(int newValue);
 		bool doCheck();
-		FString buildCommand(std::string command, std::string playerName, std::string playerId);
+		FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID);
 		void addRequestToQueue(TSharedRef<IHttpRequest> request);
 		void removeRequestFromQueue();
 		std::list<TSharedRef<IHttpRequest>> getRequests();
@@ -146,10 +146,11 @@ bool TebexArk::doCheck() {
 	return false;
 }
 
-FString TebexArk::buildCommand(std::string command, std::string playerName, std::string playerId) {
+FString TebexArk::buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID) {
 
 	ReplaceStringInPlace(command, "{username}", playerName);
 	ReplaceStringInPlace(command, "{id}", playerId);
+	ReplaceStringInPlace(command, "{ue4id}", UE4ID);
 	return FString(command);
 }
 

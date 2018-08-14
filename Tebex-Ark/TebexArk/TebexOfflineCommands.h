@@ -50,7 +50,7 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 		std::list<int> executedCommands;
 		while (commandCnt < commands.size()) {
 			auto command = commands[commandCnt];
-			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), command["player"]["name"].get<std::string>(), command["player"]["uuid"].get<std::string>());
+			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), command["player"]["name"].get<std::string>(), command["player"]["uuid"].get<std::string>(), "");
 			
 
 			APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
