@@ -66,6 +66,8 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 
 	player->GetPlayerCharacterName(playerName);
 
+	long long linkedPlayerIdField = player->LinkedPlayerIDField();
+
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
 	}
@@ -77,7 +79,7 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 		std::list<int> executedCommands;
 		while (commandCnt < commands.size()) {
 			auto command = commands[commandCnt];
-			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName->ToString(), playerId);
+			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName->ToString(), playerId, std::to_string(linkedPlayerIdField));
 
 			FString *result = &FString();
 			
