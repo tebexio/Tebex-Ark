@@ -4,9 +4,13 @@ Tebex-Ark is the official ArkServerApi plugin for the [Tebex](https://www.tebex.
 
 This plugin is a complete plugin to check for purchases from the Tebex platform and execute commands in game.
 
-## Alpha
+## Beta
 
-This library is currently in development, so should be considered alpha - functions may change without warning or be untested.
+This library is currently in development, so should be considered beta - functions may change without warning or be untested.
+
+## Requirements
+
+This plugin requires the Ark:Server API extention to be installed.
 
 ## Support
 
