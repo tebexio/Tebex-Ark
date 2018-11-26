@@ -66,7 +66,7 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 			plugin->setNextCheck(json["meta"]["next_check"].get<int>());
 		}
 
-		plugin->setNextCheck(45);
+		//plugin->setNextCheck(45);
 		if (!json["meta"]["execute_offline"].is_null() && json["meta"]["execute_offline"].get<bool>()) {
 			plugin->logWarning("Do offline commands");
 			TebexOfflineCommands::Call(plugin);
