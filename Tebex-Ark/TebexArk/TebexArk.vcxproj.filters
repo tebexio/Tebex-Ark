@@ -59,6 +59,15 @@
     <ClInclude Include="TebexDeleteCommands.h">
       <Filter>Source Files\commands</Filter>
     </ClInclude>
+    <ClInclude Include="httplib.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TebexPushCommands.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="picosha2.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TebexArk.rc">

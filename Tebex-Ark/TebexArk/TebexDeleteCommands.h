@@ -9,7 +9,7 @@ using json = nlohmann::json;
 class TebexDeleteCommands
 {
 private:
-
+	
 public:
 	static void Call(TebexArk *plugin, std::list<int> commandIds);
 	static void ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request);

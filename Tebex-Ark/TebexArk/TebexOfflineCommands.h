@@ -37,7 +37,14 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 	request->ResponseField()->GetContentAsString(Response);
 	std::string responseText = Response->ToString();
 
-	auto json = json::parse(responseText);
+	nlohmann::basic_json json = nlohmann::json::parse("{}");
+	try {
+		json = nlohmann::json::parse(responseText);
+	}
+	catch (nlohmann::detail::parse_error ex) {
+		plugin->logError("Unable to parse JSON");
+		return;
+	}
 
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
@@ -55,9 +62,29 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 
 			APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 			FString *result = &FString();
-			if (FirstPlayer != nullptr) {
-				plugin->logWarning(FString("Exec ") + targetCommand);
-				FirstPlayer->ConsoleCommand(result, &targetCommand, true);
+
+			//if (FirstPlayer != nullptr) {
+
+				int delay = command["conditions"]["delay"].get<int>();
+				if (delay == 0) {
+					plugin->logWarning(FString("Exec ") + targetCommand);
+					//FirstPlayer->ConsoleCommand(result, &targetCommand, true);
+				}
+				else {
+					FString *delayCommand = new FString(targetCommand.ToString());
+					std::thread([plugin, &delayCommand, result, delay]() {
+						FString targetCommand = FString(delayCommand->ToString());
+						FString *cmdPtr = &targetCommand;
+						Sleep(delay * 1000);
+						//APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+						//if (FirstPlayer != nullptr) {								
+							plugin->logWarning(FString("Exec ") + targetCommand);							
+							//FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+						//}
+						return false;
+					}).detach();					
+				}
+
 				executedCommands.push_back(command["id"].get<int>());
 				exCount++;
 
@@ -65,10 +92,11 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 					TebexDeleteCommands::Call(plugin, executedCommands);
 					executedCommands.clear();
 				}
-			}
-			else {
-				plugin->logWarning("No player available to target commands");
-			}
+
+			//}
+			//else {
+			//	plugin->logWarning("No player available to target commands");
+			//}
 			
 			commandCnt++;
 		}

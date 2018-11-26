@@ -43,12 +43,20 @@ void TebexForcecheck::Call(TebexArk *plugin)
 }
 
 void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request) {
-
 	FString *Response = &FString();
 	request->ResponseField()->GetContentAsString(Response);
 	std::string responseText = Response->ToString();
-
-	auto json = nlohmann::json::parse(responseText);
+	
+	nlohmann::basic_json json = nlohmann::json::parse("{}");
+	try {
+		plugin->logWarning(FString(responseText));
+		json = nlohmann::json::parse(responseText);
+	}
+	catch (nlohmann::detail::parse_error ex) {
+		plugin->logError("Unable to parse JSON");
+		return;
+	}
+	
 
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
