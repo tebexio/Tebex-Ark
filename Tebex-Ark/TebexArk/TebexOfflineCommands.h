@@ -63,12 +63,12 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 			APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 			FString *result = &FString();
 
-			//if (FirstPlayer != nullptr) {
+			if (FirstPlayer != nullptr) {
 
 				int delay = command["conditions"]["delay"].get<int>();
 				if (delay == 0) {
 					plugin->logWarning(FString("Exec ") + targetCommand);
-					//FirstPlayer->ConsoleCommand(result, &targetCommand, true);
+					FirstPlayer->ConsoleCommand(result, &targetCommand, true);
 				}
 				else {
 					FString *delayCommand = new FString(targetCommand.ToString());
@@ -76,11 +76,11 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 						FString targetCommand = FString(delayCommand->ToString());
 						FString *cmdPtr = &targetCommand;
 						Sleep(delay * 1000);
-						//APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
-						//if (FirstPlayer != nullptr) {								
+						APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+						if (FirstPlayer != nullptr) {								
 							plugin->logWarning(FString("Exec ") + targetCommand);							
-							//FirstPlayer->ConsoleCommand(result, cmdPtr, true);
-						//}
+							FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+						}
 						return false;
 					}).detach();					
 				}
@@ -93,10 +93,10 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 					executedCommands.clear();
 				}
 
-			//}
-			//else {
-			//	plugin->logWarning("No player available to target commands");
-			//}
+			}
+			else {
+				plugin->logWarning("No player available to target commands");
+			}
 			
 			commandCnt++;
 		}
