@@ -49,7 +49,6 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 	
 	nlohmann::basic_json json = nlohmann::json::parse("{}");
 	try {
-		plugin->logWarning(FString(responseText));
 		json = nlohmann::json::parse(responseText);
 	}
 	catch (nlohmann::detail::parse_error ex) {

@@ -94,7 +94,6 @@ bool TebexArk::parsePushCommands(std::string body)
 		int requireOnline = command["require_online"].get<int>();
 
 		if (requireOnline == 1 && player == nullptr) {
-			this->logWarning("Player is not line");
 			commandCnt++;
 			continue;
 		}
@@ -128,6 +127,7 @@ bool TebexArk::parsePushCommands(std::string body)
 				if (FirstPlayer != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
 					FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+					this->logWarning("Done!");
 				}
 				return false;
 			}).detach();
@@ -164,7 +164,6 @@ bool TebexArk::loadServer() {
 
 		pushCommands->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
 		serverLoaded = true;
-		logWarning("Done");
 	}
 
 	return serverLoaded;
