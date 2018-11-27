@@ -153,14 +153,16 @@ bool TebexArk::parsePushCommands(std::string body)
 }
 
 bool TebexArk::loadServer() {
-	if (!serverLoaded) {
+
+	if (!serverLoaded && this->getConfig().enablePushCommands) {
 		logWarning("Loading HTTP Server Async....");
 		TebexPushCommands *pushCommands = new TebexPushCommands(
 			this->getConfig().secret.ToString(),
 			[this](std::string log) {this->logWarning(FString(log)); },
 			[this](std::string body) { return this->parsePushCommands(body); });
 
-		pushCommands->startServer("192.168.1.109", 1234);
+
+		pushCommands->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
 		serverLoaded = true;
 		logWarning("Done");
 	}
@@ -221,7 +223,10 @@ void TebexArk::saveConfig()
 	configJson["baseUrl"] = config.baseUrl.ToString();
 	configJson["buyCommand"] = config.buyCommand.ToString();
 	configJson["secret"] = config.secret.ToString();
-	configJson["buyEnabled"] = config.buyEnabled;	
+	configJson["buyEnabled"] = config.buyEnabled;
+	configJson["enablePushCommands"] = config.enablePushCommands;
+	configJson["ipPushCommands"] = config.ipPushCommands.ToString();
+	configJson["portPushCommands"] = config.portPushCommands;
 	
 	std::fstream configFile;
 	configFile.open(config_path);
@@ -252,6 +257,17 @@ void TebexArk::readConfig()
 		if (!configJson["buyEnabled"].is_null()) {
 			config.buyEnabled = configJson["buyEnabled"].get<bool>();
 		}
+		if (!configJson["enablePushCommands"].is_null()) {
+			config.enablePushCommands = configJson["enablePushCommands"].get<bool>();
+		}
+		if (!configJson["ipPushCommands"].is_null()) {
+			config.ipPushCommands = FString(configJson["ipPushCommands"].get<std::string>());
+		}
+		if (!configJson["portPushCommands"].is_null()) {
+			config.portPushCommands = configJson["portPushCommands"].get<int>();
+		}
+
+
 		configFile.close();
 	}
 	saveConfig();
