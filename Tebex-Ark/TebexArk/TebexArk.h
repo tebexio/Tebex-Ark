@@ -91,9 +91,9 @@ bool TebexArk::parsePushCommands(std::string body)
 		}
 
 		FString targetCommand = this->buildCommand(command["command"].get<std::string>(), playerUsername, playerId, ue4id);
-		int requireOnline = command["require_online"].get<int>();
+		std::string requireOnline = command["require_online"].get<std::string>();
 
-		if (requireOnline == 1 && player == nullptr) {
+		if (requireOnline == "1" && player == nullptr) {
 			commandCnt++;
 			continue;
 		}
