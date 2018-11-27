@@ -46,8 +46,8 @@ bool TebexPushCommands::startServer(std::string host, int port) {
 }
 
 void TebexPushCommands::Ping() {
-	this->svr.Get("/ping", [this](const httplib::Request& req, httplib::Response& res) {
-		this->logFunction("GET /ping");
+	this->svr.Post("/ping", [this](const httplib::Request& req, httplib::Response& res) {
+		this->logFunction("POST /ping");
 		res.set_content("Connection Established!", "text/plain");
 	});
 }
