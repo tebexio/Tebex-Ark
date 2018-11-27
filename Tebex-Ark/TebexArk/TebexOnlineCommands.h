@@ -8,10 +8,11 @@ using json = nlohmann::json;
 class TebexOnlineCommands
 {
 private:
-	static uint64 strToSteamID(std::string steamId);
+	
 public:
 	static void Call(TebexArk *plugin, int pluginPlayerId, std::string playerId);
 	static void ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request);
+	static uint64 strToSteamID(std::string steamId);
 };
 
 uint64 TebexOnlineCommands::strToSteamID(std::string steamId) {
@@ -52,7 +53,15 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 	request->ResponseField()->GetContentAsString(Response);
 	std::string responseText = Response->ToString();
 
-	auto json = json::parse(responseText);
+
+	nlohmann::basic_json json = nlohmann::json::parse("{}");
+	try {
+		json = nlohmann::json::parse(responseText);
+	}
+	catch (nlohmann::detail::parse_error ex) {
+		plugin->logError("Unable to parse JSON");
+		return;
+	}
 
 	std::string playerId = json["player"]["id"].get<std::string>();
 
@@ -83,8 +92,27 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 
 			FString *result = &FString();
 			
-			plugin->logWarning(FString("Exec ") + targetCommand);
-			player->ConsoleCommand(result, &targetCommand, true);
+			int delay = command["conditions"]["delay"].get<int>();
+			if (delay == 0) {
+				plugin->logWarning(FString("Exec ") + targetCommand);
+				player->ConsoleCommand(result, &targetCommand, true);
+			}
+			else {
+				FString *delayCommand = new FString(targetCommand.ToString());
+				std::thread([plugin, &delayCommand, delay]() {
+					FString targetCommand = FString(delayCommand->ToString());
+					FString *cmdPtr = &targetCommand;
+					Sleep(delay * 1000);
+					FString *result = &FString();
+					APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+					if (FirstPlayer != nullptr) {
+						plugin->logWarning(FString("Exec ") + targetCommand);
+						FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+					}
+					return false;
+				}).detach();
+			}
+			
 			executedCommands.push_back(command["id"].get<int>());
 			exCount++;
 
