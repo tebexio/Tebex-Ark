@@ -72,6 +72,7 @@ bool TebexArk::parsePushCommands(std::string body)
 		uint64 steamId64 = TebexArk::strToSteamID(playerId);
 
 		AShooterPlayerController *player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+		APlayerController *FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 
 		std::string playerUsername;
 		std::string ue4id;
@@ -93,15 +94,13 @@ bool TebexArk::parsePushCommands(std::string body)
 		int requireOnline = command["require_online"].get<int>();
 
 		if (requireOnline == 1 && player == nullptr) {
+			this->logWarning("Player is not line");
 			commandCnt++;
 			continue;
 		}
 
-		if (player == nullptr) {
-			APlayerController* player = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
-		}
-
-		if (player == nullptr) {
+		if (player == nullptr && FirstPlayer == nullptr) {
+			this->logWarning("No player available to execute");
 			commandCnt++;
 			continue;
 		}
@@ -111,7 +110,12 @@ bool TebexArk::parsePushCommands(std::string body)
 		int delay = command["delay"].get<int>();
 		if (delay == 0) {
 			this->logWarning(FString("Exec ") + targetCommand);
-			player->ConsoleCommand(result, &targetCommand, true);
+			if (player != nullptr) {
+				player->ConsoleCommand(result, &targetCommand, true);
+			}
+			else {
+				FirstPlayer->ConsoleCommand(result, &targetCommand, true);
+			}
 		}
 		else {
 			FString *delayCommand = new FString(targetCommand.ToString());
@@ -120,10 +124,10 @@ bool TebexArk::parsePushCommands(std::string body)
 				FString *cmdPtr = &targetCommand;
 
 				Sleep(delay * 1000);
-				AShooterPlayerController *player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
-				if (player != nullptr) {					
+				APlayerController *FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+				if (FirstPlayer != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
-					player->ConsoleCommand(result, cmdPtr, true);
+					FirstPlayer->ConsoleCommand(result, cmdPtr, true);
 				}
 				return false;
 			}).detach();
