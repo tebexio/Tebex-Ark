@@ -99,14 +99,15 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 			}
 			else {
 				FString *delayCommand = new FString(targetCommand.ToString());
-				std::thread([plugin, &delayCommand, result, delay, steamId64]() {
+				std::thread([plugin, &delayCommand, delay]() {
+					FString targetCommand = FString(delayCommand->ToString());
+					FString *cmdPtr = &targetCommand;
 					Sleep(delay * 1000);
-					AShooterPlayerController *player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
-					if (player != nullptr) {
-						FString targetCommand = FString(delayCommand->ToString());
-						FString *cmdPtr = &targetCommand;
+					FString *result = &FString();
+					APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+					if (FirstPlayer != nullptr) {
 						plugin->logWarning(FString("Exec ") + targetCommand);
-						player->ConsoleCommand(result, cmdPtr, true);
+						FirstPlayer->ConsoleCommand(result, cmdPtr, true);
 					}
 					return false;
 				}).detach();

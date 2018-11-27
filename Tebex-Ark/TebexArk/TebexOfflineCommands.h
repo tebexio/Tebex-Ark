@@ -72,10 +72,11 @@ void TebexOfflineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest
 				}
 				else {
 					FString *delayCommand = new FString(targetCommand.ToString());
-					std::thread([plugin, &delayCommand, result, delay]() {
+					std::thread([plugin, &delayCommand, delay]() {						
 						FString targetCommand = FString(delayCommand->ToString());
 						FString *cmdPtr = &targetCommand;
 						Sleep(delay * 1000);
+						FString *result = &FString();
 						APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 						if (FirstPlayer != nullptr) {								
 							plugin->logWarning(FString("Exec ") + targetCommand);							

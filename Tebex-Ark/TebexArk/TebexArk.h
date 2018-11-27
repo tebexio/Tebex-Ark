@@ -118,11 +118,12 @@ bool TebexArk::parsePushCommands(std::string body)
 		}
 		else {
 			FString *delayCommand = new FString(targetCommand.ToString());
-			std::thread([this, &delayCommand, result, delay, steamId64]() {
+			std::thread([this, &delayCommand, delay, steamId64]() {
 				FString targetCommand = FString(delayCommand->ToString());
 				FString *cmdPtr = &targetCommand;
 
 				Sleep(delay * 1000);
+				FString *result = &FString();
 				APlayerController *FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 				if (FirstPlayer != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
