@@ -2,6 +2,7 @@
 #include <API/ARK/Ark.h>
 #include <fstream>
 #include <random>
+#include <filesystem>
 #include "WebstoreInfo.cpp"
 #include "Config.cpp"
 #include "json.hpp"
@@ -41,11 +42,13 @@ class TebexArk
 		std::list<TSharedRef<IHttpRequest>> getRequests();
 		bool loadServer();
 		bool parsePushCommands(std::string commands);
+		std::string getConfigPath();
+		std::string getGameType();
 ;};
 
 
 TebexArk::TebexArk() {
-	Log::Get().Init("TebexArk");
+	Log::Get().Init("Tebex" + getGameType());
 	logger = Log::GetLog();
 
 	logWarning("Plugin Loading...");
@@ -213,9 +216,51 @@ void TebexArk::setConfig(std::string key, std::string value) {
 	saveConfig();
 }
 
-void TebexArk::saveConfig()
+std::string TebexArk::getGameType()
 {
-	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
+	namespace fs = std::filesystem;
+
+	const std::string current_dir = ArkApi::Tools::GetCurrentDir();
+
+	for (const auto& directory_entry : fs::directory_iterator(current_dir))
+	{
+		const auto& path = directory_entry.path();
+		if (is_directory(path))
+		{
+			const auto name = path.filename().stem().generic_string();
+			if (name == "ArkApi")
+			{
+				return "Ark";
+			}
+			if (name == "AtlasApi")
+			{
+				return "Atlas";
+			}
+		}
+	}
+
+	return "";
+}
+
+std::string TebexArk::getConfigPath()
+{
+	const std::string gameType = getGameType();
+	
+	if (gameType == "Ark")
+	{
+		return ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
+	}
+	if (gameType == "Atlas")
+	{
+		return ArkApi::Tools::GetCurrentDir() + "\\AtlasApi\\Plugins\\TebexAtlas\\config.json";
+	}
+
+	return "";
+}
+
+void TebexArk::saveConfig()
+{	
+	const std::string config_path = getConfigPath();
 	json configJson;
 
 	logWarning(FString::Format("Save config to {0}", config_path));
@@ -236,7 +281,7 @@ void TebexArk::saveConfig()
 
 void TebexArk::readConfig()
 {
-	const std::string config_path = ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
+	const std::string config_path = getConfigPath();
 	std::fstream configFile;
 	configFile.open(config_path);
 
