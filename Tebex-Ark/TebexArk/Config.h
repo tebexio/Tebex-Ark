@@ -1,8 +1,13 @@
 #pragma once
+
+#ifdef TEBEX_ARK
 #include <API/ARK/Ark.h>
+#else
+#include <API/Atlas/Atlas.h>
+#endif
 
-namespace tebexConfig {
-
+namespace tebexConfig
+{
 	struct Config {
 		bool buyEnabled = true;
 		FString buyCommand = "!donate";

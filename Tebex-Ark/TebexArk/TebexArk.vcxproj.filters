@@ -24,10 +24,10 @@
     <ClCompile Include="TebexArk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WebstoreInfo.cpp">
+    <ClCompile Include="Config.h">
       <Filter>Source Files\models</Filter>
     </ClCompile>
-    <ClCompile Include="Config.cpp">
+    <ClCompile Include="WebstoreInfo.h">
       <Filter>Source Files\models</Filter>
     </ClCompile>
   </ItemGroup>

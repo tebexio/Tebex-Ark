@@ -1,61 +1,47 @@
 #pragma once
-#include <API/ARK/Ark.h>
-#include "json.hpp"
+
+#include "TebexArk.h"
+
+#include <Requests.h>
+
 #include "TebexOfflineCommands.h"
 #include "TebexOnlineCommands.h"
 
-
-class TebexForcecheck
-{
-private:
-	static uint64 strToSteamID(std::string steamId);
+class TebexForcecheck {
 public:
-	static void Call(TebexArk *plugin);
-	static void ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request);
+	static void Call(TebexArk* plugin);
+	static void ApiCallback(TebexArk* plugin, std::string responseText);
 };
 
-uint64 TebexForcecheck::strToSteamID(std::string steamId) {
-	uint64 result = 0;
-	char const* p = steamId.c_str();
-	char const* q = p + steamId.size();
+inline void TebexForcecheck::Call(TebexArk* plugin) {
+	const std::string url = (plugin->getConfig().baseUrl + "/queue").ToString();
+	const std::vector<std::string> headers{
+		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
+		"X-Buycraft-Handler: TebexForcecheck"
+	};
 
-	while (p < q) {
-		result *= 10;
-		result += *(p++) - '0';
+	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
+		if (!success) {
+			plugin->logError("Unable to process API request");
+			return;
+		}
+
+		ApiCallback(plugin, response);
+	}, move(headers));
+	if (!result) {
+		plugin->logWarning("Call failed");
 	}
-	return result;
 }
 
-void TebexForcecheck::Call(TebexArk *plugin)
-{
-	TSharedRef<IHttpRequest> request;
-
-	FHttpModule::Get()->CreateRequest(&request);
-	request->SetHeader(&FString("X-Buycraft-Secret"), &FString(plugin->getConfig().secret));
-	request->SetURL(&FString(plugin->getConfig().baseUrl + "/queue"));
-	request->SetVerb(&FString("GET"));
-	request->SetHeader(&FString("X-Buycraft-Handler"), &FString("TebexForcecheck"));
-	request->ProcessRequest();
-
-	plugin->addRequestToQueue(request);
-	
-
-}
-
-void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request) {
-	FString *Response = &FString();
-	request->ResponseField()->GetContentAsString(Response);
-	std::string responseText = Response->ToString();
-	
-	nlohmann::basic_json json = nlohmann::json::parse("{}");
+inline void TebexForcecheck::ApiCallback(TebexArk* plugin, std::string responseText) {
+	nlohmann::basic_json json;
 	try {
 		json = nlohmann::json::parse(responseText);
 	}
-	catch (nlohmann::detail::parse_error ex) {
+	catch (const nlohmann::detail::parse_error&) {
 		plugin->logError("Unable to parse JSON");
 		return;
 	}
-	
 
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
@@ -76,9 +62,16 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 			while (playerCnt < json["players"].size()) {
 				auto player = json["players"][playerCnt];
 
-				uint64 steamId64 = TebexForcecheck::strToSteamID(player["uuid"].get<std::string>());
+				uint64 steamId64;
+				try {
+					steamId64 = std::stoull(player["uuid"].get<std::string>());
+				}
+				catch (const std::exception&) {
+					plugin->logError("Parsing error");
+					return;
+				}
 
-				AShooterPlayerController *targetPlayer = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+				AShooterPlayerController* targetPlayer = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 				if (targetPlayer != nullptr) {
 					plugin->logWarning(FString::Format("Process commands for {0}", player["name"].get<std::string>()));
 					TebexOnlineCommands::Call(plugin, player["id"].get<int>(), player["uuid"].get<std::string>());
@@ -87,6 +80,4 @@ void TebexForcecheck::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> req
 			}
 		}
 	}
-
 }
-

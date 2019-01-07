@@ -1,86 +1,77 @@
 #pragma once
-#include <API/ARK/Ark.h>
-#include "json.hpp"
+
+#include "TebexArk.h"
+
 #include "TebexDeleteCommands.h"
 
 using json = nlohmann::json;
 
-class TebexOnlineCommands
-{
-private:
-	
+class TebexOnlineCommands {
 public:
-	static void Call(TebexArk *plugin, int pluginPlayerId, std::string playerId);
-	static void ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request);
-	static uint64 strToSteamID(std::string steamId);
+	static void Call(TebexArk* plugin, int pluginPlayerId, std::string playerId);
+	static void ApiCallback(TebexArk* plugin, std::string responseText);
 };
 
-uint64 TebexOnlineCommands::strToSteamID(std::string steamId) {
-	uint64 result = 0;
-	char const* p = steamId.c_str();
-	char const* q = p + steamId.size();
-
-	while (p < q) {
-		result *= 10;
-		result += *(p++) - '0';
-	}
-	return result;
-}
-
-void TebexOnlineCommands::Call(TebexArk *plugin, int pluginPlayerId, std::string playerId)
-{
-	TSharedRef<IHttpRequest> request;
-
+inline void TebexOnlineCommands::Call(TebexArk* plugin, int pluginPlayerId, std::string playerId) {
 	plugin->logWarning(FString::Format("Check for commands for {0}", playerId));
 
+	const std::string url = (plugin->getConfig().baseUrl + "/queue/online-commands/" + FString::Format(
+		"{0}", pluginPlayerId)).ToString();
+	const std::vector<std::string> headers{
+		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
+		"X-Buycraft-Handler: TebexOnlineCommands"
+	};
 
-	FHttpModule::Get()->CreateRequest(&request);
-	request->SetHeader(&FString("X-Buycraft-Secret"), &FString(plugin->getConfig().secret));
-	request->SetURL(&FString(plugin->getConfig().baseUrl + "/queue/online-commands/" + FString::Format("{0}", pluginPlayerId)));
-	request->SetVerb(&FString("GET"));
-	request->SetHeader(&FString("X-Buycraft-Handler"), &FString("TebexOnlineCommands"));
-	request->ProcessRequest();
+	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
+		if (!success) {
+			plugin->logError("Unable to process API request");
+			return;
+		}
 
-	plugin->addRequestToQueue(request);
+		ApiCallback(plugin, response);
+	}, move(headers));
+	if (!result) {
+		plugin->logWarning("Call failed");
+	}
 }
 
-void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request) {
+inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string responseText) {
+	const int deleteAfter = 5;
 
-	int deleteAfter = 5;
-
-	//Parse the JSON first to get the steamID
-	FString *Response = &FString();
-	request->ResponseField()->GetContentAsString(Response);
-	std::string responseText = Response->ToString();
-
-
-	nlohmann::basic_json json = nlohmann::json::parse("{}");
+	nlohmann::basic_json json;
 	try {
 		json = nlohmann::json::parse(responseText);
 	}
-	catch (nlohmann::detail::parse_error ex) {
+	catch (const nlohmann::detail::parse_error&) {
 		plugin->logError("Unable to parse JSON");
 		return;
 	}
 
-	std::string playerId = json["player"]["id"].get<std::string>();
+	const std::string playerId = json["player"]["id"].get<std::string>();
 
-	uint64 steamId64 = TebexOnlineCommands::strToSteamID(playerId);
+	uint64 steamId64;
+	try {
+		steamId64 = std::stoull(playerId);
+	}
+	catch (const std::exception&) {
+		plugin->logError("Parsing error");
+		return;
+	}
 
-	AShooterPlayerController *player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+	AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 	if (player == nullptr) {
 		return;
 	}
-	FString* playerName = new FString();
 
-	player->GetPlayerCharacterName(playerName);
+	FString playerName;
+	player->GetPlayerCharacterName(&playerName);
 
-	long long linkedPlayerIdField = player->LinkedPlayerIDField();
+	const long long linkedPlayerIdField = player->LinkedPlayerIDField();
 
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
 	}
-	else {
+	else { // Improve
 		auto commands = json["commands"];
 
 		int commandCnt = 0;
@@ -88,22 +79,23 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 		std::list<int> executedCommands;
 		while (commandCnt < commands.size()) {
 			auto command = commands[commandCnt];
-			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName->ToString(), playerId, std::to_string(linkedPlayerIdField));
+			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName.ToString(),
+			                                             playerId, std::to_string(linkedPlayerIdField));
 
-			FString *result = &FString();
-			
 			int delay = command["conditions"]["delay"].get<int>();
 			if (delay == 0) {
 				plugin->logWarning(FString("Exec ") + targetCommand);
-				player->ConsoleCommand(result, &targetCommand, true);
+
+				FString result;
+				player->ConsoleCommand(&result, &targetCommand, true);
 			}
 			else {
-				FString *delayCommand = new FString(targetCommand.ToString());
+				FString* delayCommand = new FString(targetCommand.ToString());
 				std::thread([plugin, &delayCommand, delay]() {
 					FString targetCommand = FString(delayCommand->ToString());
-					FString *cmdPtr = &targetCommand;
+					FString* cmdPtr = &targetCommand;
 					Sleep(delay * 1000);
-					FString *result = &FString();
+					FString* result = &FString();
 					APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 					if (FirstPlayer != nullptr) {
 						plugin->logWarning(FString("Exec ") + targetCommand);
@@ -112,7 +104,7 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 					return false;
 				}).detach();
 			}
-			
+
 			executedCommands.push_back(command["id"].get<int>());
 			exCount++;
 
@@ -120,7 +112,7 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 				TebexDeleteCommands::Call(plugin, executedCommands);
 				executedCommands.clear();
 			}
-			
+
 			commandCnt++;
 		}
 
@@ -130,7 +122,4 @@ void TebexOnlineCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest>
 			executedCommands.clear();
 		}
 	}
-	delete playerName;
-
 }
-

@@ -1,5 +1,10 @@
 #pragma once
+
+#ifdef TEBEX_ARK
 #include <API/ARK/Ark.h>
+#else
+#include <API/Atlas/Atlas.h>
+#endif
 
 struct WebstoreInfo {
 	int id;
