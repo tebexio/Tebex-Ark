@@ -14,14 +14,14 @@ public:
 
 inline void TebexInfo::Call(TebexArk* plugin) {
 	const std::string url = (plugin->getConfig().baseUrl + "/information").ToString();
-	const std::vector<std::string> headers{
+	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexInfo"
 	};
 
 	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
 		if (!success) {
-			plugin->logError("Unable to process API request");
+			plugin->logWarning("Unable to process API request");
 			return;
 		}
 

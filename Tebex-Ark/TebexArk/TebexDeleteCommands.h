@@ -20,14 +20,14 @@ inline void TebexDeleteCommands::Call(TebexArk* plugin, const std::list<int>& co
 	}
 
 	const std::string url = (plugin->getConfig().baseUrl + L"/queue?" + deleteUrl).ToString();
-	const std::vector<std::string> headers{
+	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexDeleteCommands"
 	};
 
 	const bool result = API::Requests::Get().CreateDeleteRequest(url, [plugin](bool success, std::string response) {
 		if (!success) {
-			plugin->logError("Unable to process API request");
+			plugin->logWarning("Unable to process API request");
 			return;
 		}
 

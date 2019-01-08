@@ -21,7 +21,7 @@
 #pragma comment(lib, "lib/ArkApi.lib")
 #endif
 
-inline TebexArk::TebexArk() {
+TebexArk::TebexArk() {
 	Log::Get().Init("Tebex" + getGameType());
 	logger_ = Log::GetLog();
 
@@ -29,7 +29,7 @@ inline TebexArk::TebexArk() {
 	lastCalled -= 14 * 60;
 }
 
-inline bool TebexArk::parsePushCommands(std::string body) {
+bool TebexArk::parsePushCommands(std::string body) {
 	int deleteAfter = 5;
 
 	nlohmann::basic_json commands = nlohmann::json::parse(body);
@@ -71,7 +71,7 @@ inline bool TebexArk::parsePushCommands(std::string body) {
 		}
 
 		FString targetCommand = buildCommand(command["command"].get<std::string>(), playerUsername, playerId,
-			ue4id);
+		                                     ue4id);
 		std::string requireOnline = command["require_online"].get<std::string>();
 
 		if (requireOnline == "1" && player == nullptr) {
@@ -135,10 +135,10 @@ inline bool TebexArk::parsePushCommands(std::string body) {
 	return true;
 }
 
-inline bool TebexArk::loadServer() {
+bool TebexArk::loadServer() {
 	if (!serverLoaded_ && getConfig().enablePushCommands) {
 		logWarning("Loading HTTP Server Async....");
-		TebexPushCommands* pushCommands = new TebexPushCommands( // TODO: Improve
+		TebexPushCommands* pushCommands = new TebexPushCommands(
 			getConfig().secret.ToString(),
 			[this](std::string log) { this->logWarning(FString(log)); },
 			[this](std::string body) { return this->parsePushCommands(body); });
@@ -150,15 +150,15 @@ inline bool TebexArk::loadServer() {
 	return serverLoaded_;
 }
 
-inline void TebexArk::logWarning(const FString& message) const {
+void TebexArk::logWarning(const FString& message) const {
 	logger_->info(message.ToString());
 }
 
-inline void TebexArk::logError(const FString& message) const {
+void TebexArk::logError(const FString& message) const {
 	logger_->critical(message.ToString());
 }
 
-inline void TebexArk::setWebstore(const json& json) {
+void TebexArk::setWebstore(const json& json) {
 	webstoreInfo_.id = json["account"]["id"].get<int>();
 	webstoreInfo_.name = FString(json["account"]["name"].get<std::string>());
 	webstoreInfo_.domain = FString(json["account"]["domain"].get<std::string>());
@@ -171,15 +171,15 @@ inline void TebexArk::setWebstore(const json& json) {
 
 }
 
-inline WebstoreInfo TebexArk::getWebstore() const {
+WebstoreInfo TebexArk::getWebstore() const {
 	return webstoreInfo_;
 }
 
-inline Config TebexArk::getConfig() const {
+Config TebexArk::getConfig() const {
 	return config_;
 }
 
-inline void TebexArk::setConfig(const std::string& key, const std::string& value) {
+void TebexArk::setConfig(const std::string& key, const std::string& value) {
 	if (key == "secret") {
 		config_.secret = FString(value);
 	}
@@ -187,7 +187,7 @@ inline void TebexArk::setConfig(const std::string& key, const std::string& value
 	saveConfig();
 }
 
-inline std::string TebexArk::getGameType() const {
+std::string TebexArk::getGameType() const {
 	namespace fs = std::filesystem;
 
 	const std::string current_dir = ArkApi::Tools::GetCurrentDir();
@@ -208,20 +208,20 @@ inline std::string TebexArk::getGameType() const {
 	return "";
 }
 
-inline std::string TebexArk::getConfigPath() const {
+std::string TebexArk::getConfigPath() const {
 	const std::string gameType = getGameType();
 
 	if (gameType == "Ark") {
-		return ArkApi::Tools::GetCurrentDir() + "\\ArkApi\\Plugins\\TebexArk\\config.json";
+		return ArkApi::Tools::GetCurrentDir() + R"(\ArkApi\Plugins\TebexArk\config.json)";
 	}
 	if (gameType == "Atlas") {
-		return ArkApi::Tools::GetCurrentDir() + "\\AtlasApi\\Plugins\\TebexAtlas\\config.json";
+		return ArkApi::Tools::GetCurrentDir() + R"(\AtlasApi\Plugins\TebexAtlas\config.json)";
 	}
 
 	return "";
 }
 
-inline void TebexArk::saveConfig() {
+void TebexArk::saveConfig() {
 	const std::string configPath = getConfigPath();
 	json configJson;
 
@@ -235,14 +235,14 @@ inline void TebexArk::saveConfig() {
 	configJson["ipPushCommands"] = config_.ipPushCommands.ToString();
 	configJson["portPushCommands"] = config_.portPushCommands;
 
-	std::fstream configFile{ configPath };
+	std::fstream configFile{configPath};
 	configFile << configJson.dump();
 	configFile.close();
 }
 
-inline void TebexArk::readConfig() {
+void TebexArk::readConfig() {
 	const std::string configPath = getConfigPath();
-	std::fstream configFile{ configPath };
+	std::fstream configFile{configPath};
 
 	if (!configFile.is_open()) {
 		logWarning("No config file found, creating default");
@@ -279,11 +279,11 @@ inline void TebexArk::readConfig() {
 	saveConfig();
 }
 
-inline void TebexArk::setNextCheck(int newVal) {
+void TebexArk::setNextCheck(int newVal) {
 	nextCheck_ = newVal;
 }
 
-inline bool TebexArk::doCheck() {
+bool TebexArk::doCheck() {
 	const time_t now = time(nullptr);
 	if ((now - lastCalled) > nextCheck_) {
 		lastCalled = time(nullptr);
@@ -292,12 +292,29 @@ inline bool TebexArk::doCheck() {
 	return false;
 }
 
-inline FString TebexArk::buildCommand(std::string command, std::string playerName, std::string playerId,
-	std::string UE4ID) {
+FString TebexArk::buildCommand(std::string command, std::string playerName, std::string playerId,
+                               std::string UE4ID) const {
 	ReplaceStringInPlace(command, "{username}", playerName);
 	ReplaceStringInPlace(command, "{id}", playerId);
 	ReplaceStringInPlace(command, "{ue4id}", UE4ID);
 	return FString(command);
+}
+
+void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
+	FString result;
+
+#ifdef TEBEX_ARK
+	player->ConsoleCommand(&result, &command, true);
+#else // In Atlas only admins can execute cheat commands
+	const bool is_admin = player->bIsAdmin()(), is_cheat = player->bCheatPlayer()();
+	player->bIsAdmin() = true;
+	player->bCheatPlayer() = true;
+
+	player->ConsoleCommand(&result, &command, true);
+
+	player->bIsAdmin() = is_admin;
+	player->bCheatPlayer() = is_cheat;
+#endif
 }
 
 FString getHttpRef() {
@@ -310,9 +327,8 @@ FString getHttpRef() {
 	return FString(str.substr(0, 10));
 }
 
-// TODO: Improve
 void TebexArk::ReplaceStringInPlace(std::string& subject, const std::string& search,
-	const std::string& replace) {
+                                    const std::string& replace) const {
 	size_t pos = 0;
 	while ((pos = subject.find(search, pos)) != std::string::npos) {
 		subject.replace(pos, search.length(), replace);
@@ -335,18 +351,18 @@ void Load() {
 
 	ArkApi::GetCommands().AddConsoleCommand(
 		"tebex:forcecheck",
-		[plugin](APlayerController* , FString* , bool) {
+		[plugin](APlayerController*, FString*, bool) {
 			TebexForcecheck::Call(plugin);
 		});
 	ArkApi::GetCommands().AddRconCommand(
 		"tebex:forcecheck",
-		[plugin](RCONClientConnection* , RCONPacket* , UWorld*) {
+		[plugin](RCONClientConnection*, RCONPacket*, UWorld*) {
 			TebexForcecheck::Call(plugin);
 		});
 
 	ArkApi::GetCommands().AddConsoleCommand(
 		"tebex:secret",
-		[plugin](APlayerController* , FString* command, bool) {
+		[plugin](APlayerController*, FString* command, bool) {
 			TebexSecret::Call(plugin, *command);
 		});
 	ArkApi::GetCommands().AddRconCommand(
@@ -355,15 +371,11 @@ void Load() {
 			TebexSecret::Call(plugin, rcon_packet->Body);
 		});
 
-	ArkApi::GetCommands().AddOnChatMessageCallback(
-		"chatcallback",
-		[plugin](AShooterPlayerController* player, FString* message, EChatSendMode::Type, bool, bool) {
-			if (message->TrimStartAndEnd() == plugin->getConfig().buyCommand) {
-				ArkApi::GetApiUtils().SendServerMessage(
-					player, FColorList::Red, *FString::Format("To buy packages from our webstore, please visit {0}",
-					                                          plugin->getWebstore().domain.ToString()));
-			}
-			return false;
+	ArkApi::GetCommands().AddChatCommand(
+		plugin->getConfig().buyCommand, [plugin](AShooterPlayerController* player, FString*, EChatSendMode::Type) {
+			ArkApi::GetApiUtils().SendServerMessage(player, FColorList::Red, *FString::Format(
+				                                        "To buy packages from our webstore, please visit {0}",
+				                                        plugin->getWebstore().domain.ToString()));
 		});
 
 	plugin->logWarning("Loading Config...");
@@ -371,7 +383,7 @@ void Load() {
 
 	tebexConfig::Config tmpconfig = plugin->getConfig();
 
-	if (tmpconfig.secret.ToString() == "") {
+	if (tmpconfig.secret.ToString().empty()) {
 		plugin->logError("You have not yet defined your secret key. Use /tebex:secret <secret> to define your key");
 	}
 	else {
@@ -379,50 +391,6 @@ void Load() {
 	}
 
 	ArkApi::GetCommands().AddOnTimerCallback("commandChecker", [plugin]() {
-		/*std::list<TSharedRef<IHttpRequest>> requests = plugin->getRequests();
-		if (requests.size() > 0) {
-			auto request = requests.front();
-			switch (request->GetStatus()) {
-			case EHttpRequestStatus::Succeeded:
-				{
-					FString handler = *request->GetHeader(&FString(""), &FString("X-Buycraft-Handler"));
-					std::string handlerName = handler.ToString();
-					if (handlerName == "TebexInfo") {
-						TebexInfo::ApiCallback(plugin, request);
-					}
-					else if (handlerName == "TebexOfflineCommands") {
-						TebexOfflineCommands::ApiCallback(plugin, request);
-					}
-					else if (handlerName == "TebexSecret") {
-						TebexSecret::ApiCallback(plugin, request);
-					}
-					else if (handlerName == "TebexForcecheck") {
-						//TebexForcecheck::ApiCallback(plugin, request);
-					}
-					else if (handlerName == "TebexDeleteCommands") {
-						TebexDeleteCommands::ApiCallback(plugin, request);
-					}
-					else if (handlerName == "TebexOnlineCommands") {
-						TebexOnlineCommands::ApiCallback(plugin, request);
-					}
-					plugin->removeRequestFromQueue();
-				}
-				break;
-
-			case EHttpRequestStatus::NotStarted:
-				{
-					plugin->logWarning("Waiting for HTTP response...");
-				}
-				break;
-			case EHttpRequestStatus::Failed:
-				{
-					plugin->logError("Unable to process API request");
-					plugin->removeRequestFromQueue();
-				}
-				break;
-			}
-		}*/
-
 		if (plugin->doCheck()) {
 			plugin->loadServer();
 			TebexForcecheck::Call(plugin);

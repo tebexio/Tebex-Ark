@@ -26,15 +26,17 @@ public:
 	void readConfig();
 	void setNextCheck(int newValue);
 	bool doCheck();
-	FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID);
+	FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID) const;
 	bool loadServer();
-	bool parsePushCommands(std::string commands);
+	bool parsePushCommands(std::string body);
 	std::string getConfigPath() const;
 	std::string getGameType() const;
 
+	static void ConsoleCommand(APlayerController* player, FString command);
+
 private:
 	void saveConfig();
-	void ReplaceStringInPlace(std::string& subject, const std::string& search, const std::string& replace);
+	void ReplaceStringInPlace(std::string& subject, const std::string& search, const std::string& replace) const;
 
 	std::shared_ptr<spdlog::logger> logger_;
 	WebstoreInfo webstoreInfo_;

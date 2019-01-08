@@ -15,14 +15,14 @@ public:
 
 inline void TebexForcecheck::Call(TebexArk* plugin) {
 	const std::string url = (plugin->getConfig().baseUrl + "/queue").ToString();
-	const std::vector<std::string> headers{
+	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexForcecheck"
 	};
 
 	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
 		if (!success) {
-			plugin->logError("Unable to process API request");
+			plugin->logWarning("Unable to process API request");
 			return;
 		}
 
@@ -57,8 +57,8 @@ inline void TebexForcecheck::ApiCallback(TebexArk* plugin, std::string responseT
 			TebexOfflineCommands::Call(plugin);
 		}
 
-		if (!json["players"].is_null() && json["players"].size() > 0) {
-			int playerCnt = 0;
+		if (!json["players"].is_null() && !json["players"].empty()) {
+			unsigned playerCnt = 0;
 			while (playerCnt < json["players"].size()) {
 				auto player = json["players"][playerCnt];
 
@@ -76,6 +76,7 @@ inline void TebexForcecheck::ApiCallback(TebexArk* plugin, std::string responseT
 					plugin->logWarning(FString::Format("Process commands for {0}", player["name"].get<std::string>()));
 					TebexOnlineCommands::Call(plugin, player["id"].get<int>(), player["uuid"].get<std::string>());
 				}
+
 				playerCnt++;
 			}
 		}

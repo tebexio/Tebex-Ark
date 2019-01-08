@@ -2,6 +2,8 @@
 
 #include "TebexArk.h"
 
+#include <Timer.h>
+
 #include "TebexDeleteCommands.h"
 
 using json = nlohmann::json;
@@ -17,14 +19,14 @@ inline void TebexOnlineCommands::Call(TebexArk* plugin, int pluginPlayerId, std:
 
 	const std::string url = (plugin->getConfig().baseUrl + "/queue/online-commands/" + FString::Format(
 		"{0}", pluginPlayerId)).ToString();
-	const std::vector<std::string> headers{
+	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexOnlineCommands"
 	};
 
 	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
 		if (!success) {
-			plugin->logError("Unable to process API request");
+			plugin->logWarning("Unable to process API request");
 			return;
 		}
 
@@ -37,6 +39,8 @@ inline void TebexOnlineCommands::Call(TebexArk* plugin, int pluginPlayerId, std:
 
 inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string responseText) {
 	const int deleteAfter = 5;
+
+	plugin->logWarning("Checking online commands..");
 
 	nlohmann::basic_json json;
 	try {
@@ -71,38 +75,34 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 	if (!json["error_message"].is_null()) {
 		plugin->logError(FString(json["error_message"].get<std::string>()));
 	}
-	else { // Improve
-		auto commands = json["commands"];
+	else {
+		const auto& commands = json["commands"];
 
-		int commandCnt = 0;
+		unsigned commandCnt = 0;
 		int exCount = 0;
 		std::list<int> executedCommands;
+
 		while (commandCnt < commands.size()) {
 			auto command = commands[commandCnt];
+
 			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName.ToString(),
 			                                             playerId, std::to_string(linkedPlayerIdField));
 
-			int delay = command["conditions"]["delay"].get<int>();
+			const int delay = command["conditions"]["delay"].get<int>();
 			if (delay == 0) {
 				plugin->logWarning(FString("Exec ") + targetCommand);
 
-				FString result;
-				player->ConsoleCommand(&result, &targetCommand, true);
+				TebexArk::ConsoleCommand(player, targetCommand);
 			}
 			else {
-				FString* delayCommand = new FString(targetCommand.ToString());
-				std::thread([plugin, &delayCommand, delay]() {
-					FString targetCommand = FString(delayCommand->ToString());
-					FString* cmdPtr = &targetCommand;
-					Sleep(delay * 1000);
-					FString* result = &FString();
-					APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
-					if (FirstPlayer != nullptr) {
+				API::Timer::Get().DelayExecute([plugin, targetCommand]() {
+					APlayerController* firstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
+					// Should we really get random player?
+					if (firstPlayer != nullptr) {
 						plugin->logWarning(FString("Exec ") + targetCommand);
-						FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+						TebexArk::ConsoleCommand(firstPlayer, targetCommand);
 					}
-					return false;
-				}).detach();
+				}, delay);
 			}
 
 			executedCommands.push_back(command["id"].get<int>());

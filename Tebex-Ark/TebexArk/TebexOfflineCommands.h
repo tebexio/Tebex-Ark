@@ -2,6 +2,8 @@
 
 #include "TebexArk.h"
 
+#include <Timer.h>
+
 #include "TebexDeleteCommands.h"
 
 using json = nlohmann::json;
@@ -12,17 +14,16 @@ public:
 	static void ApiCallback(TebexArk* plugin, std::string responseText);
 };
 
-
 inline void TebexOfflineCommands::Call(TebexArk* plugin) {
 	const std::string url = (plugin->getConfig().baseUrl + "/queue/offline-commands").ToString();
-	const std::vector<std::string> headers{
+	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexOfflineCommands"
 	};
 
 	const bool result = API::Requests::Get().CreateGetRequest(url, [plugin](bool success, std::string response) {
 		if (!success) {
-			plugin->logError("Unable to process API request");
+			plugin->logWarning("Unable to process API request");
 			return;
 		}
 
@@ -51,11 +52,13 @@ inline void TebexOfflineCommands::ApiCallback(TebexArk* plugin, std::string resp
 	else {
 		auto commands = json["commands"];
 
-		int commandCnt = 0;
+		unsigned commandCnt = 0;
 		int exCount = 0;
 		std::list<int> executedCommands;
+
 		while (commandCnt < commands.size()) {
 			auto command = commands[commandCnt];
+
 			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(),
 			                                             command["player"]["name"].get<std::string>(),
 			                                             command["player"]["uuid"].get<std::string>(), "");
@@ -63,30 +66,20 @@ inline void TebexOfflineCommands::ApiCallback(TebexArk* plugin, std::string resp
 			APlayerController* firstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 
 			if (firstPlayer != nullptr) {
-				int delay = command["conditions"]["delay"].get<int>();
+				const int delay = command["conditions"]["delay"].get<int>();
 				if (delay == 0) {
 					plugin->logWarning(FString("Exec ") + targetCommand);
 
-					FString result;
-					firstPlayer->ConsoleCommand(&result, &targetCommand, true); // TODO: Check
+					TebexArk::ConsoleCommand(firstPlayer, targetCommand);
 				}
 				else {
-					FString* delayCommand = new FString(targetCommand.ToString()); // TODO: Replace with timer
-					std::thread([plugin, &delayCommand, delay]() {
-						FString targetCommand = FString(delayCommand->ToString());
-						FString* cmdPtr = &targetCommand;
-
-						Sleep(delay * 1000);
-
+					API::Timer::Get().DelayExecute([plugin, targetCommand]() {
 						APlayerController* firstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 						if (firstPlayer != nullptr) {
 							plugin->logWarning(FString("Exec ") + targetCommand);
-
-							FString result;
-							firstPlayer->ConsoleCommand(&result, cmdPtr, true);
+							TebexArk::ConsoleCommand(firstPlayer, targetCommand);
 						}
-						return false;
-					}).detach();
+					}, delay);
 				}
 
 				executedCommands.push_back(command["id"].get<int>());
@@ -110,6 +103,4 @@ inline void TebexOfflineCommands::ApiCallback(TebexArk* plugin, std::string resp
 			executedCommands.clear();
 		}
 	}
-
-
 }
