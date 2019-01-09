@@ -1,12 +1,10 @@
 #define _WINSOCKAPI_
-#include <io.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 
 #include "TebexArk.h"
 
 #include <fstream>
-#include <random>
 #include <filesystem>
 
 #include "TebexInfo.h"
@@ -21,6 +19,11 @@
 #pragma comment(lib, "lib/ArkApi.lib")
 #endif
 
+DECLARE_HOOK(AShooterGameMode_HandleNewPlayer, bool, AShooterGameMode*, AShooterPlayerController*, UPrimalPlayerData*,
+ AShooterCharacter*, bool);
+
+TebexArk* gPlugin;
+
 TebexArk::TebexArk() {
 	Log::Get().Init("Tebex" + getGameType());
 	logger_ = Log::GetLog();
@@ -29,13 +32,14 @@ TebexArk::TebexArk() {
 	lastCalled -= 14 * 60;
 }
 
-bool TebexArk::parsePushCommands(std::string body) {
-	int deleteAfter = 5;
+bool TebexArk::parsePushCommands(const std::string& body) {
+	const int deleteAfter = 5;
 
 	nlohmann::basic_json commands = nlohmann::json::parse(body);
-	int commandCnt = 0;
+	unsigned commandCnt = 0;
 	int exCount = 0;
 	std::list<int> executedCommands;
+
 	while (commandCnt < commands.size()) {
 		auto command = commands[commandCnt];
 
@@ -85,34 +89,27 @@ bool TebexArk::parsePushCommands(std::string body) {
 			continue;
 		}
 
-		int delay = command["delay"].get<int>();
+		const int delay = command["delay"].get<int>();
 		if (delay == 0) {
 			logWarning(FString("Exec ") + targetCommand);
 			if (player != nullptr) {
-				FString result;
-				player->ConsoleCommand(&result, &targetCommand, true);
+				ConsoleCommand(player, targetCommand);
 			}
 			else {
-				FString result;
-				firstPlayer->ConsoleCommand(&result, &targetCommand, true);
+				ConsoleCommand(firstPlayer, targetCommand);
 			}
 		}
 		else {
-			FString* delayCommand = new FString(targetCommand.ToString()); // TODO: Improve
-			std::thread([this, &delayCommand, delay, steamId64]() {
-				FString targetCommand = FString(delayCommand->ToString());
-				FString* cmdPtr = &targetCommand;
-
-				Sleep(delay * 1000);
-				FString* result = &FString();
-				APlayerController* FirstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
-				if (FirstPlayer != nullptr) {
+			API::Timer::Get().DelayExecute([this, steamId64, targetCommand]() {
+				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+				if (player != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
-					FirstPlayer->ConsoleCommand(result, cmdPtr, true);
+
+					ConsoleCommand(player, targetCommand);
+
 					this->logWarning("Done!");
 				}
-				return false;
-			}).detach();
+			}, delay);
 		}
 
 		executedCommands.push_back(command["id"].get<int>());
@@ -317,7 +314,7 @@ void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
 #endif
 }
 
-FString getHttpRef() {
+/*FString getHttpRef() {
 	std::string str("00112233445566778899aabbccddeeffgghhiijjkkllmmoonnppooqq");
 	std::random_device rd;
 	std::mt19937 generator(rd());
@@ -325,7 +322,7 @@ FString getHttpRef() {
 	std::shuffle(str.begin(), str.end(), generator);
 
 	return FString(str.substr(0, 10));
-}
+}*/
 
 void TebexArk::ReplaceStringInPlace(std::string& subject, const std::string& search,
                                     const std::string& replace) const {
@@ -336,8 +333,37 @@ void TebexArk::ReplaceStringInPlace(std::string& subject, const std::string& sea
 	}
 }
 
+bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this, AShooterPlayerController* new_player,
+                                           UPrimalPlayerData* player_data, AShooterCharacter* player_character,
+                                           bool is_from_login) {
+	const bool res = AShooterGameMode_HandleNewPlayer_original(_this, new_player, player_data, player_character, is_from_login);
+
+	const uint64 steamId = ArkApi::IApiUtils::GetSteamIdFromController(new_player);
+
+	PendingCommand* result = pendingCommands.FindByPredicate([steamId](const auto& data) {
+		return data.playerId == steamId;
+	});
+	if (result) {
+		gPlugin->logWarning(FString::Format("HandleNewPlayer {} {}", result->pluginPlayerId, std::to_string(result->playerId)));
+
+		const int pluginPlayerId = result->pluginPlayerId;
+		const std::string playerId = std::to_string(result->playerId);
+
+		API::Timer::Get().DelayExecute([pluginPlayerId, playerId]() {
+			TebexOnlineCommands::Call(gPlugin, pluginPlayerId, playerId);
+		}, 30);
+
+		pendingCommands.RemoveAllSwap([steamId](const auto& data) {
+			return data.playerId == steamId;
+		});
+	}
+
+	return res;
+}
+
 void Load() {
 	TebexArk* plugin = new TebexArk();
+	gPlugin = plugin;
 
 	ArkApi::GetCommands().AddConsoleCommand(
 		"tebex:info", [plugin](APlayerController*, FString*, bool) {
@@ -396,6 +422,10 @@ void Load() {
 			TebexForcecheck::Call(plugin);
 		}
 	});
+
+	ArkApi::GetHooks().SetHook("AShooterGameMode.HandleNewPlayer_Implementation",
+	                           &Hook_AShooterGameMode_HandleNewPlayer,
+	                           &AShooterGameMode_HandleNewPlayer_original);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {

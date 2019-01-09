@@ -13,6 +13,13 @@
 using json = nlohmann::json;
 using Config = tebexConfig::Config;
 
+struct PendingCommand {
+	int pluginPlayerId;
+	uint64 playerId;
+};
+
+inline TArray<PendingCommand> pendingCommands;
+
 class TebexArk {
 public:
 	TebexArk();
@@ -28,7 +35,7 @@ public:
 	bool doCheck();
 	FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID) const;
 	bool loadServer();
-	bool parsePushCommands(std::string body);
+	bool parsePushCommands(const std::string& body);
 	std::string getConfigPath() const;
 	std::string getGameType() const;
 

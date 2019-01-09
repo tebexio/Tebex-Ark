@@ -15,7 +15,7 @@ public:
 };
 
 inline void TebexOnlineCommands::Call(TebexArk* plugin, int pluginPlayerId, std::string playerId) {
-	plugin->logWarning(FString::Format("Check for commands for {0}", playerId));
+	plugin->logWarning(FString::Format("Check for commands for {0} {1}", playerId, pluginPlayerId));
 
 	const std::string url = (plugin->getConfig().baseUrl + "/queue/online-commands/" + FString::Format(
 		"{0}", pluginPlayerId)).ToString();
@@ -51,6 +51,11 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 		return;
 	}
 
+	if (json.find("player") == json.end()) {
+		plugin->logWarning("TebexOnlineCommands: Json is invalid");
+		return;
+	}
+
 	const std::string playerId = json["player"]["id"].get<std::string>();
 
 	uint64 steamId64;
@@ -76,14 +81,19 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 		plugin->logError(FString(json["error_message"].get<std::string>()));
 	}
 	else {
-		const auto& commands = json["commands"];
-
-		unsigned commandCnt = 0;
 		int exCount = 0;
 		std::list<int> executedCommands;
 
-		while (commandCnt < commands.size()) {
-			auto command = commands[commandCnt];
+		for (const auto& command : json["commands"]) {
+			const int slots = command["conditions"].value("slots", 0);
+			if (slots > 0 && player->GetPlayerInventory()) {
+				const int itemsAmount = player->GetPlayerInventory()->InventoryItemsField().Num();
+				const int maxItems = player->GetPlayerInventory()->AbsoluteMaxInventoryItemsField();
+
+				if (maxItems - itemsAmount < slots) {
+					continue;
+				}
+			}
 
 			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName.ToString(),
 			                                             playerId, std::to_string(linkedPlayerIdField));
@@ -95,12 +105,12 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 				TebexArk::ConsoleCommand(player, targetCommand);
 			}
 			else {
-				API::Timer::Get().DelayExecute([plugin, targetCommand]() {
-					APlayerController* firstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
-					// Should we really get random player?
-					if (firstPlayer != nullptr) {
+				API::Timer::Get().DelayExecute([plugin, steamId64, targetCommand]() {
+					AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+					if (player != nullptr) {
 						plugin->logWarning(FString("Exec ") + targetCommand);
-						TebexArk::ConsoleCommand(firstPlayer, targetCommand);
+
+						TebexArk::ConsoleCommand(player, targetCommand);
 					}
 				}, delay);
 			}
@@ -112,8 +122,6 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 				TebexDeleteCommands::Call(plugin, executedCommands);
 				executedCommands.clear();
 			}
-
-			commandCnt++;
 		}
 
 		plugin->logWarning(FString::Format("{0} online commands executed", exCount));

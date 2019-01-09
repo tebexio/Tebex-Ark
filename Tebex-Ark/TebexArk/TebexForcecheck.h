@@ -14,6 +14,8 @@ public:
 };
 
 inline void TebexForcecheck::Call(TebexArk* plugin) {
+	plugin->logWarning("TebexForcecheck");
+
 	const std::string url = (plugin->getConfig().baseUrl + "/queue").ToString();
 	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
@@ -58,10 +60,7 @@ inline void TebexForcecheck::ApiCallback(TebexArk* plugin, std::string responseT
 		}
 
 		if (!json["players"].is_null() && !json["players"].empty()) {
-			unsigned playerCnt = 0;
-			while (playerCnt < json["players"].size()) {
-				auto player = json["players"][playerCnt];
-
+			for (const auto& player : json["players"]) {
 				uint64 steamId64;
 				try {
 					steamId64 = std::stoull(player["uuid"].get<std::string>());
@@ -76,8 +75,20 @@ inline void TebexForcecheck::ApiCallback(TebexArk* plugin, std::string responseT
 					plugin->logWarning(FString::Format("Process commands for {0}", player["name"].get<std::string>()));
 					TebexOnlineCommands::Call(plugin, player["id"].get<int>(), player["uuid"].get<std::string>());
 				}
+				else {
+					const int playerId = player["id"].get<int>();
 
-				playerCnt++;
+					PendingCommand* result = pendingCommands.FindByPredicate([playerId](const auto& data) {
+						return data.pluginPlayerId == playerId;
+					});
+
+					if (!result) {
+						pendingCommands.Add({playerId, steamId64});
+
+						plugin->logWarning(FString::Format("PendingCommands add {}", steamId64));
+
+					}
+				}
 			}
 		}
 	}

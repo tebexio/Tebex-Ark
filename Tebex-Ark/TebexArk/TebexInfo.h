@@ -14,6 +14,7 @@ public:
 
 inline void TebexInfo::Call(TebexArk* plugin) {
 	const std::string url = (plugin->getConfig().baseUrl + "/information").ToString();
+
 	std::vector<std::string> headers{
 		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
 		"X-Buycraft-Handler: TebexInfo"
