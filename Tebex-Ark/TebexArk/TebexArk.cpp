@@ -19,6 +19,7 @@
 #pragma comment(lib, "lib/ArkApi.lib")
 #endif
 
+DECLARE_HOOK(AShooterGameMode_InitGame, void, AShooterGameMode*, FString*, FString*, FString*);
 DECLARE_HOOK(AShooterGameMode_HandleNewPlayer, bool, AShooterGameMode*, AShooterPlayerController*, UPrimalPlayerData*,
  AShooterCharacter*, bool);
 
@@ -137,8 +138,12 @@ bool TebexArk::loadServer() {
 		logWarning("Loading HTTP Server Async....");
 		TebexPushCommands* pushCommands = new TebexPushCommands(
 			getConfig().secret.ToString(),
-			[this](std::string log) { this->logWarning(FString(log)); },
-			[this](std::string body) { return this->parsePushCommands(body); });
+			[this](std::string log) {
+				this->logWarning(FString(log));
+			},
+			[this](std::string body) {
+				return this->parsePushCommands(body);
+			});
 
 		pushCommands->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
 		serverLoaded_ = true;
@@ -226,23 +231,24 @@ void TebexArk::saveConfig() {
 
 	configJson["baseUrl"] = config_.baseUrl.ToString();
 	configJson["buyCommand"] = config_.buyCommand.ToString();
-	configJson["secret"] = config_.secret.ToString();
 	configJson["buyEnabled"] = config_.buyEnabled;
 	configJson["enablePushCommands"] = config_.enablePushCommands;
 	configJson["ipPushCommands"] = config_.ipPushCommands.ToString();
 	configJson["portPushCommands"] = config_.portPushCommands;
+	configJson["secret"] = config_.secret.ToString();
 
 	std::fstream configFile{configPath};
-	configFile << configJson.dump();
+	configFile << configJson.dump(2);
 	configFile.close();
 }
 
-void TebexArk::readConfig() {
+void TebexArk::readConfig(const std::string& address) {
 	const std::string configPath = getConfigPath();
 	std::fstream configFile{configPath};
 
 	if (!configFile.is_open()) {
 		logWarning("No config file found, creating default");
+		saveConfig();
 	}
 	else {
 		json configJson;
@@ -255,7 +261,7 @@ void TebexArk::readConfig() {
 			config_.buyCommand = FString(configJson["buyCommand"].get<std::string>());
 		}
 		if (!configJson["secret"].is_null()) {
-			config_.secret = FString(configJson["secret"].get<std::string>());
+			config_.secret = FString(getSecret(configJson, address));
 		}
 		if (!configJson["buyEnabled"].is_null()) {
 			config_.buyEnabled = configJson["buyEnabled"].get<bool>();
@@ -272,8 +278,14 @@ void TebexArk::readConfig() {
 
 		configFile.close();
 	}
+}
 
-	saveConfig();
+std::string TebexArk::getSecret(const json& config, const std::string& address) const {
+	std::string default_secret = config["secret"];
+
+	return getGameType() == "Atlas"
+		       ? config["secrets"].value(address, default_secret)
+		       : default_secret;
 }
 
 void TebexArk::setNextCheck(int newVal) {
@@ -290,7 +302,7 @@ bool TebexArk::doCheck() {
 }
 
 FString TebexArk::buildCommand(std::string command, std::string playerName, std::string playerId,
-                               std::string UE4ID) const {
+                               std::string UE4ID) {
 	ReplaceStringInPlace(command, "{username}", playerName);
 	ReplaceStringInPlace(command, "{id}", playerId);
 	ReplaceStringInPlace(command, "{ue4id}", UE4ID);
@@ -325,12 +337,52 @@ void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
 }*/
 
 void TebexArk::ReplaceStringInPlace(std::string& subject, const std::string& search,
-                                    const std::string& replace) const {
+                                    const std::string& replace) {
 	size_t pos = 0;
 	while ((pos = subject.find(search, pos)) != std::string::npos) {
 		subject.replace(pos, search.length(), replace);
 		pos += replace.length();
 	}
+}
+
+void Hook_AShooterGameMode_InitGame(AShooterGameMode* a_shooter_game_mode, FString* map_name, FString* options,
+                                    FString* error_message) {
+	AShooterGameMode_InitGame_original(a_shooter_game_mode, map_name, options, error_message);
+
+#ifdef TEBEX_ATLAS
+	FString ip;
+	int port;
+
+	static_cast<UShooterGameInstance*>(
+			ArkApi::GetApiUtils().GetWorld()->OwningGameInstanceField())->
+		GridInfoField()->GetCurrentServerIPAndPort(&ip, &port);
+
+	std::string address = fmt::format("{}:{}", ip.ToString(), port);
+
+	gPlugin->logWarning(FString::Format("Server address: {}", address));
+
+	gPlugin->logWarning("Loading Config...");
+	gPlugin->readConfig(address);
+#else
+	gPlugin->logWarning("Loading Config...");
+	gPlugin->readConfig("");
+#endif
+
+	tebexConfig::Config tmpconfig = gPlugin->getConfig();
+
+	if (tmpconfig.secret.ToString().empty()) {
+		gPlugin->logError("You have not yet defined your secret key. Use /tebex:secret <secret> to define your key");
+		return;
+	}
+
+	TebexInfo::Call(gPlugin);
+
+	ArkApi::GetCommands().AddOnTimerCallback("commandChecker", []() {
+		if (gPlugin->doCheck()) {
+			gPlugin->loadServer();
+			TebexForcecheck::Call(gPlugin);
+		}
+	});
 }
 
 bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this, AShooterPlayerController* new_player,
@@ -404,28 +456,11 @@ void Load() {
 				                                        plugin->getWebstore().domain.ToString()));
 		});
 
-	plugin->logWarning("Loading Config...");
-	plugin->readConfig();
-
-	tebexConfig::Config tmpconfig = plugin->getConfig();
-
-	if (tmpconfig.secret.ToString().empty()) {
-		plugin->logError("You have not yet defined your secret key. Use /tebex:secret <secret> to define your key");
-	}
-	else {
-		TebexInfo::Call(plugin);
-	}
-
-	ArkApi::GetCommands().AddOnTimerCallback("commandChecker", [plugin]() {
-		if (plugin->doCheck()) {
-			plugin->loadServer();
-			TebexForcecheck::Call(plugin);
-		}
-	});
-
 	ArkApi::GetHooks().SetHook("AShooterGameMode.HandleNewPlayer_Implementation",
 	                           &Hook_AShooterGameMode_HandleNewPlayer,
 	                           &AShooterGameMode_HandleNewPlayer_original);
+	ArkApi::GetHooks().SetHook("AShooterGameMode.InitGame", &Hook_AShooterGameMode_InitGame,
+	                           &AShooterGameMode_InitGame_original);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {

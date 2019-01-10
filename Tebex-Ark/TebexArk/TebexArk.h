@@ -30,20 +30,21 @@ public:
 	WebstoreInfo getWebstore() const;
 	Config getConfig() const;
 	void setConfig(const std::string& key, const std::string& value);
-	void readConfig();
+	void readConfig(const std::string& address);
+	std::string getSecret(const json& config, const std::string& address) const;
 	void setNextCheck(int newValue);
 	bool doCheck();
-	FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID) const;
 	bool loadServer();
 	bool parsePushCommands(const std::string& body);
 	std::string getConfigPath() const;
 	std::string getGameType() const;
 
+	static FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID);
 	static void ConsoleCommand(APlayerController* player, FString command);
 
 private:
+	static void ReplaceStringInPlace(std::string& subject, const std::string& search, const std::string& replace);
 	void saveConfig();
-	void ReplaceStringInPlace(std::string& subject, const std::string& search, const std::string& replace) const;
 
 	std::shared_ptr<spdlog::logger> logger_;
 	WebstoreInfo webstoreInfo_;
