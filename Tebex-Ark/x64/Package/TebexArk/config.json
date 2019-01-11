@@ -1,2 +1,15 @@
-{
+{  
+  "baseUrl":"https://plugin.buycraft.net",
+  "buyCommand":"!donate",
+  "buyEnabled":true,
+  "enablePushCommands":false,
+  "ipPushCommands":"0.0.0.0",
+  "portPushCommands":1111,
+  "secret":"",
+  "Messages":{  
+    "BuyPackages":"To buy packages from our webstore, please visit {0}",
+    "WrongCategory":"Invalid category name",
+    "DonateUsage":"Use '{} category' command to see the list of items",
+    "ItemsFormat":"{}, Price: {}\n"
+  }
 }
