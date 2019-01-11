@@ -68,6 +68,9 @@
     <ClInclude Include="picosha2.hpp">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="TebexBuyCommand.h">
+      <Filter>Source Files\commands</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TebexArk.rc">

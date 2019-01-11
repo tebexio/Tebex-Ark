@@ -12,6 +12,7 @@
 #include "TebexForcecheck.h"
 #include "TebexOnlineCommands.h"
 #include "TebexPushCommands.hpp"
+#include "TebexBuyCommand.h"
 
 #ifdef TEBEX_ATLAS
 #pragma comment(lib, "lib/AtlasApi.lib")
@@ -181,6 +182,14 @@ Config TebexArk::getConfig() const {
 	return config_;
 }
 
+json TebexArk::getJson() const {
+	return json_config_;
+}
+
+FString TebexArk::GetText(const std::string& str) const {
+	return FString(ArkApi::Tools::Utf8Decode(json_config_.value("Messages", json::object()).value(str, "No message")).c_str());
+}
+
 void TebexArk::setConfig(const std::string& key, const std::string& value) {
 	if (key == "secret") {
 		config_.secret = FString(value);
@@ -259,29 +268,28 @@ void TebexArk::readConfig(const std::string& address) {
 		saveConfig();
 	}
 	else {
-		json configJson;
-		configFile >> configJson;
+		configFile >> json_config_;
 
-		if (!configJson["baseUrl"].is_null()) {
-			config_.baseUrl = FString(configJson["baseUrl"].get<std::string>());
+		if (!json_config_["baseUrl"].is_null()) {
+			config_.baseUrl = FString(json_config_["baseUrl"].get<std::string>());
 		}
-		if (!configJson["buyCommand"].is_null()) {
-			config_.buyCommand = FString(configJson["buyCommand"].get<std::string>());
+		if (!json_config_["buyCommand"].is_null()) {
+			config_.buyCommand = FString(json_config_["buyCommand"].get<std::string>());
 		}
-		if (!configJson["secret"].is_null()) {
-			config_.secret = FString(getSecret(configJson, address));
+		if (!json_config_["secret"].is_null()) {
+			config_.secret = FString(getSecret(json_config_, address));
 		}
-		if (!configJson["buyEnabled"].is_null()) {
-			config_.buyEnabled = configJson["buyEnabled"].get<bool>();
+		if (!json_config_["buyEnabled"].is_null()) {
+			config_.buyEnabled = json_config_["buyEnabled"].get<bool>();
 		}
-		if (!configJson["enablePushCommands"].is_null()) {
-			config_.enablePushCommands = configJson["enablePushCommands"].get<bool>();
+		if (!json_config_["enablePushCommands"].is_null()) {
+			config_.enablePushCommands = json_config_["enablePushCommands"].get<bool>();
 		}
-		if (!configJson["ipPushCommands"].is_null()) {
-			config_.ipPushCommands = FString(configJson["ipPushCommands"].get<std::string>());
+		if (!json_config_["ipPushCommands"].is_null()) {
+			config_.ipPushCommands = FString(json_config_["ipPushCommands"].get<std::string>());
 		}
-		if (!configJson["portPushCommands"].is_null()) {
-			config_.portPushCommands = configJson["portPushCommands"].get<int>();
+		if (!json_config_["portPushCommands"].is_null()) {
+			config_.portPushCommands = json_config_["portPushCommands"].get<int>();
 		}
 
 		configFile.close();
@@ -389,6 +397,7 @@ void Hook_AShooterGameMode_InitGame(AShooterGameMode* a_shooter_game_mode, FStri
 		if (gPlugin->doCheck()) {
 			gPlugin->loadServer();
 			TebexForcecheck::Call(gPlugin);
+			TebexBuyChatCommand::Call(gPlugin);
 		}
 	});
 }
@@ -464,10 +473,11 @@ void Load() {
 		});
 
 	ArkApi::GetCommands().AddChatCommand(
-		plugin->getConfig().buyCommand, [plugin](AShooterPlayerController* player, FString*, EChatSendMode::Type) {
-			ArkApi::GetApiUtils().SendServerMessage(player, FColorList::Red, *FString::Format(
-				                                        "To buy packages from our webstore, please visit {0}",
-				                                        plugin->getWebstore().domain.ToString()));
+		plugin->getConfig().buyCommand, [plugin](AShooterPlayerController* player, FString* message, EChatSendMode::Type) {
+			TebexBuyChatCommand::ShowCategoriesCommand(plugin, player, message);
+			ArkApi::GetApiUtils().SendServerMessage(player, FColorList::Red,
+			                                        *FString::Format(*plugin->GetText("BuyPackages"),
+			                                                         plugin->getWebstore().domain.ToString()));
 		});
 
 	ArkApi::GetHooks().SetHook("AShooterGameMode.HandleNewPlayer_Implementation",

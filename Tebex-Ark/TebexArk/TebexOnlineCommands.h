@@ -86,9 +86,11 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 
 		for (const auto& command : json["commands"]) {
 			const int slots = command["conditions"].value("slots", 0);
-			if (slots > 0 && player->GetPlayerInventory()) {
-				const int itemsAmount = player->GetPlayerInventory()->InventoryItemsField().Num();
-				const int maxItems = player->GetPlayerInventory()->AbsoluteMaxInventoryItemsField();
+			if (slots > 0 && player->GetPlayerCharacter() && player->GetPlayerCharacter()->MyInventoryComponentField()) {
+				UPrimalInventoryComponent* inv = player->GetPlayerCharacter()->MyInventoryComponentField();
+
+				const int itemsAmount = inv->InventoryItemsField().Num();
+				const int maxItems = inv->AbsoluteMaxInventoryItemsField();
 
 				if (maxItems - itemsAmount < slots) {
 					continue;

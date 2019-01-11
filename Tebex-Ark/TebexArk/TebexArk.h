@@ -29,6 +29,8 @@ public:
 	void setWebstore(const json& json);
 	WebstoreInfo getWebstore() const;
 	Config getConfig() const;
+	json getJson() const;
+	FString GetText(const std::string& str) const;
 	void setConfig(const std::string& key, const std::string& value);
 	void readConfig(const std::string& address);
 	std::string getSecret(const json& config, const std::string& address) const;
@@ -51,6 +53,7 @@ private:
 	std::shared_ptr<spdlog::logger> logger_;
 	WebstoreInfo webstoreInfo_;
 	Config config_;
+	json json_config_;
 	int nextCheck_ = 15 * 60;
 	time_t last_called_ = time(nullptr);
 	bool serverLoaded_ = false;

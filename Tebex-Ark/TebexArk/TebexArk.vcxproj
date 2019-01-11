@@ -152,6 +152,7 @@
     <ClInclude Include="picosha2.hpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TebexArk.h" />
+    <ClInclude Include="TebexBuyCommand.h" />
     <ClInclude Include="TebexDeleteCommands.h" />
     <ClInclude Include="TebexForcecheck.h" />
     <ClInclude Include="TebexInfo.h" />
