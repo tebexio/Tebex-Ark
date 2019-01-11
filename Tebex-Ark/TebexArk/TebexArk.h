@@ -38,6 +38,8 @@ public:
 	bool parsePushCommands(const std::string& body);
 	std::string getConfigPath() const;
 	std::string getGameType() const;
+	time_t getLastCalled() const;
+	int getNextCheck() const;
 
 	static FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID);
 	static void ConsoleCommand(APlayerController* player, FString command);
@@ -50,6 +52,6 @@ private:
 	WebstoreInfo webstoreInfo_;
 	Config config_;
 	int nextCheck_ = 15 * 60;
-	time_t lastCalled = time(nullptr);
+	time_t last_called_ = time(nullptr);
 	bool serverLoaded_ = false;
 };

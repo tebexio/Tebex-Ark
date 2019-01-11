@@ -30,7 +30,7 @@ TebexArk::TebexArk() {
 	logger_ = Log::GetLog();
 
 	logWarning("Plugin Loading...");
-	lastCalled -= 14 * 60;
+	last_called_ -= 14 * 60;
 }
 
 bool TebexArk::parsePushCommands(const std::string& body) {
@@ -210,6 +210,14 @@ std::string TebexArk::getGameType() const {
 	return "";
 }
 
+time_t TebexArk::getLastCalled() const {
+	return last_called_;
+}
+
+int TebexArk::getNextCheck() const {
+	return nextCheck_;
+}
+
 std::string TebexArk::getConfigPath() const {
 	const std::string gameType = getGameType();
 
@@ -294,8 +302,8 @@ void TebexArk::setNextCheck(int newVal) {
 
 bool TebexArk::doCheck() {
 	const time_t now = time(nullptr);
-	if ((now - lastCalled) > nextCheck_) {
-		lastCalled = time(nullptr);
+	if ((now - last_called_) > nextCheck_) {
+		last_called_ = time(nullptr);
 		return true;
 	}
 	return false;
@@ -396,13 +404,19 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this, AShooterPlay
 		return data.playerId == steamId;
 	});
 	if (result) {
-		gPlugin->logWarning(FString::Format("HandleNewPlayer {} {}", result->pluginPlayerId, std::to_string(result->playerId)));
-
 		const int pluginPlayerId = result->pluginPlayerId;
 		const std::string playerId = std::to_string(result->playerId);
 
 		API::Timer::Get().DelayExecute([pluginPlayerId, playerId]() {
-			TebexOnlineCommands::Call(gPlugin, pluginPlayerId, playerId);
+			const time_t now = time(nullptr);
+			const time_t lastCalled = gPlugin->getLastCalled();
+			const int nextCheck = gPlugin->getNextCheck();
+
+			if (abs(nextCheck - (now - lastCalled)) >= 30) {
+				gPlugin->logWarning(FString::Format("Give items to connected player {} {}", pluginPlayerId, playerId));
+
+				TebexOnlineCommands::Call(gPlugin, pluginPlayerId, playerId);
+			}
 		}, 30);
 
 		pendingCommands.RemoveAllSwap([steamId](const auto& data) {
