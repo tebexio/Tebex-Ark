@@ -1,42 +1,43 @@
 #pragma once
-#include <API/ARK/Ark.h>
+
 #include "TebexArk.h"
-#include "json.hpp"
-#include "WebstoreInfo.cpp"
+
+#include <Requests.h>
 
 using json = nlohmann::json;
 
-class TebexDeleteCommands
-{
-private:
-	
+class TebexDeleteCommands {
 public:
-	static void Call(TebexArk *plugin, std::list<int> commandIds);
-	static void ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request);
+	static void Call(TebexArk* plugin, const std::list<int>& commandIds);
+	static void ApiCallback(TebexArk* plugin, std::string responseText);
 };
 
-
-
-void TebexDeleteCommands::Call(TebexArk *plugin, std::list<int> commandIds)
-{
-
-	FString deleteUrl = FString();
+inline void TebexDeleteCommands::Call(TebexArk* plugin, const std::list<int>& commandIds) {
+	FString deleteUrl;
 
 	for (auto const& id : commandIds) {
 		deleteUrl += FString::Format("ids[]={0}&", id);
 	}
 
-	TSharedRef<IHttpRequest> request;
-	FHttpModule::Get()->CreateRequest(&request);
-	request->SetHeader(&FString("X-Buycraft-Secret"), &FString(plugin->getConfig().secret));
-	request->SetURL(&FString(plugin->getConfig().baseUrl + "/queue?" + deleteUrl));
-	request->SetVerb(&FString("DELETE"));
-	request->SetHeader(&FString("X-Buycraft-Handler"), &FString("TebexDeleteCommands"));
-	request->ProcessRequest();
+	const std::string url = (plugin->getConfig().baseUrl + L"/queue?" + deleteUrl).ToString();
+	std::vector<std::string> headers{
+		fmt::format("X-Buycraft-Secret: {}", plugin->getConfig().secret.ToString()),
+		"X-Buycraft-Handler: TebexDeleteCommands"
+	};
 
-	plugin->addRequestToQueue(request);
+	const bool result = API::Requests::Get().CreateDeleteRequest(url, [plugin](bool success, std::string response) {
+		if (!success) {
+			plugin->logWarning("Unable to process API request");
+			return;
+		}
+
+		ApiCallback(plugin, response);
+	}, move(headers));
+	if (!result) {
+		plugin->logWarning("Call failed");
+	}
 }
 
-void TebexDeleteCommands::ApiCallback(TebexArk *plugin, TSharedRef<IHttpRequest> request) {
+inline void TebexDeleteCommands::ApiCallback(TebexArk* plugin, std::string responseText) {
 	//Do nothing :)
 }

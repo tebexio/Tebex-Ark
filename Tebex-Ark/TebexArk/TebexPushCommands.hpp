@@ -1,43 +1,41 @@
 #pragma once
-#include "httplib.hpp"
+
 #include <future>
+
+#include "httplib.hpp"
 #include "picosha2.hpp"
 #include "json.hpp"
 
-
-class TebexPushCommands
-{
+class TebexPushCommands {
+public:
+	TebexPushCommands(std::string secret, std::function<void(std::string)> logFn,
+	                  std::function<bool(std::string)> execFn);
+	bool startServer(std::string host, int port);
+	void Ping();
+	void PushListener();
+	bool HashValid(const httplib::Request& req);
 
 private:
 	httplib::Server svr;
 	std::function<void(std::string)> logFunction;
 	std::function<bool(std::string)> execFunction;
 	std::string secretKey;
-
-public:
-	TebexPushCommands(std::string secret, std::function<void(std::string)> logFn, std::function<bool(std::string)> execFn);
-	bool startServer(std::string host, int port);
-	void Ping();	
-	void PushListener();
-	bool HashValid(const httplib::Request& req);	
 };
 
-
-TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std::string)> logFn, std::function<bool(std::string)> execFn)
-{
+TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std::string)> logFn,
+                                     std::function<bool(std::string)> execFn) {
 	this->secretKey = secret;
 	this->logFunction = logFn;
 	this->execFunction = execFn;
 	logFunction("Starting Tebex Push Command Server");
 }
 
-
-bool TebexPushCommands::startServer(std::string host, int port) {	
+bool TebexPushCommands::startServer(std::string host, int port) {
 
 	this->Ping();
 	this->PushListener();
 	this->logFunction("Starting server on " + host + ":" + std::to_string(port));
-	
+
 	std::thread([this, host, port]() {
 		this->svr.listen(host.c_str(), port);
 	}).detach();
@@ -59,7 +57,7 @@ void TebexPushCommands::PushListener() {
 			res.status = 422;
 		}
 		else {
-			nlohmann::basic_json  commands = nlohmann::json::parse("{}");
+			nlohmann::basic_json commands = nlohmann::json::parse("{}");
 			try {
 				commands = nlohmann::json::parse(req.body);
 			}
