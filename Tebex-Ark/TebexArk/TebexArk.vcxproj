@@ -108,7 +108,7 @@
       <PreprocessorDefinitions>NDEBUG;TEBEXARK_EXPORTS;_WINDOWS;_USRDLL;TEBEX_ATLAS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:auto %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -130,7 +130,7 @@
       <PreprocessorDefinitions>NDEBUG;TEBEXARK_EXPORTS;_WINDOWS;_USRDLL;TEBEX_ARK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:auto %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
