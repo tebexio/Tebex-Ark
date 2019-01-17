@@ -192,7 +192,8 @@ FString TebexArk::GetText(const std::string& str) const {
 
 void TebexArk::setConfig(const std::string& key, const std::string& value) {
 	if (key == "secret") {
-		config_.secret = FString(value);
+		json_config_["secret"] = value;
+		config_.secret = value.c_str();
 	}
 
 	saveConfig();
@@ -242,20 +243,26 @@ std::string TebexArk::getConfigPath() const {
 
 void TebexArk::saveConfig() {
 	const std::string configPath = getConfigPath();
-	json configJson;
 
 	logWarning(FString::Format("Save config to {0}", configPath));
 
-	configJson["baseUrl"] = config_.baseUrl.ToString();
-	configJson["buyCommand"] = config_.buyCommand.ToString();
-	configJson["buyEnabled"] = config_.buyEnabled;
-	configJson["enablePushCommands"] = config_.enablePushCommands;
-	configJson["ipPushCommands"] = config_.ipPushCommands.ToString();
-	configJson["portPushCommands"] = config_.portPushCommands;
-	configJson["secret"] = config_.secret.ToString();
+	if (json_config_.find("baseUrl") == json_config_.end())
+		json_config_["baseUrl"] = config_.baseUrl.ToString();
+	if (json_config_.find("buyCommand") == json_config_.end())
+		json_config_["buyCommand"] = config_.buyCommand.ToString();
+	if (json_config_.find("buyEnabled") == json_config_.end())
+		json_config_["buyEnabled"] = config_.buyEnabled;
+	if (json_config_.find("enablePushCommands") == json_config_.end())
+		json_config_["enablePushCommands"] = config_.enablePushCommands;
+	if (json_config_.find("ipPushCommands") == json_config_.end())
+		json_config_["ipPushCommands"] = config_.ipPushCommands.ToString();
+	if (json_config_.find("portPushCommands") == json_config_.end())
+		json_config_["portPushCommands"] = config_.portPushCommands;
+	if (json_config_.find("secret") == json_config_.end())
+		json_config_["secret"] = config_.secret.ToString();
 
-	std::fstream configFile{configPath};
-	configFile << configJson.dump(2);
+	std::ofstream configFile{configPath};
+	configFile << json_config_.dump(2);
 	configFile.close();
 }
 
