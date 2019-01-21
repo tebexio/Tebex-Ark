@@ -1,6 +1,6 @@
 {
   "FullName":"TebexAtlas",
   "Description":"Official Atlas Server API plugin for the Tebex server monetization platform",
-  "Version":0.1,
-  "MinApiVersion":1.0
+  "Version":1.0,
+  "MinApiVersion":1.4
 }
