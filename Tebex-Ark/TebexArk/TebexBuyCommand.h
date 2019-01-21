@@ -57,20 +57,24 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 	}
 
 	const float display_time = 15.0f;
-	const float text_size = 1.3f;
+	const float text_size_title = 1.3f;
+	const float text_size = 1.0f;
 
 	FString store_str = L"";
 
 	for (const auto& item : items_listing["categories"]) {
+		const std::string id = item["id"].get<std::string>();
 		const std::string name = item["name"];
 
-		store_str += FString::Format("{}\n", name);
+		store_str += FString::Format(*plugin->GetText("ItemsFormat"), id, name);
 	}
 
-	store_str += FString::Format(*plugin->GetText("DonateUsage"), *plugin->getConfig().buyCommand);
+	FString donate_str = FString::Format(*plugin->GetText("DonateUsage"), *plugin->getConfig().buyCommand);
+	FString title_str = FString::Format(*plugin->GetText("CategoriesTitle"), plugin->getWebstore().name.ToString());
 
-	ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr,
-	                                       *store_str);
+	ArkApi::GetApiUtils().SendNotification(player, FColorList::Green, text_size_title, display_time, nullptr, *title_str);
+	ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr, *store_str);
+	ArkApi::GetApiUtils().SendNotification(player, FColorList::Green, text_size, display_time, nullptr, *donate_str);
 }
 
 inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, const FString& category) {
@@ -96,10 +100,11 @@ inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlaye
 	FString store_str = L"";
 
 	for (const auto& item : packages) {
+		const std::string id = item.value("id", "");
 		const std::string name = item.value("name", "");
 		const std::string price = item.value("price", "0");
 
-		store_str += FString::Format(*plugin->GetText("ItemsFormat"), name, price);
+		store_str += FString::Format(*plugin->GetText("ItemsFormat"), id, name, price);
 	}
 
 	ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr,
