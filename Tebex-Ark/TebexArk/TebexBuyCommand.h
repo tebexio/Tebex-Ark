@@ -9,9 +9,12 @@ inline json items_listing;
 class TebexBuyChatCommand {
 public:
 	static void Call(TebexArk* plugin);
-	static void ApiCallback(TebexArk* plugin, std::string responseText);
 	static void ShowCategoriesCommand(TebexArk* plugin, AShooterPlayerController* player, FString* message);
-	static void ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, const FString& category);
+	static void ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, int category_id);
+
+private:
+	static void ApiCallback(TebexArk* plugin, std::string responseText);
+	static json FindPackages(int category_id);
 };
 
 inline void TebexBuyChatCommand::Call(TebexArk* plugin) {
@@ -52,7 +55,16 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 	message->ParseIntoArray(parsed, L" ", true);
 
 	if (parsed.IsValidIndex(1)) {
-		ShowtemsCommand(plugin, player, parsed[1]);
+		int id;
+
+		try {
+			id = std::stoi(*parsed[1]);
+		}
+		catch (const std::exception&) {
+			return;
+		}
+
+		ShowtemsCommand(plugin, player, id);
 		return;
 	}
 
@@ -63,10 +75,17 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 	FString store_str = L"";
 
 	for (const auto& item : items_listing["categories"]) {
-		const std::string id = item["id"].get<std::string>();
-		const std::string name = item["name"];
+		int id = item["id"];
+		std::string name = item["name"];
 
-		store_str += FString::Format(*plugin->GetText("ItemsFormat"), id, name);
+		store_str += FString::Format(*plugin->GetText("CategoriesFormat"), id, name);
+
+		for (const auto& item2 : item.value("subcategories", json::object())) {
+			id = item2["id"];
+			name = item2["name"];
+
+			store_str += FString::Format(*plugin->GetText("CategoriesFormat"), id, name);
+		}
 	}
 
 	FString donate_str = FString::Format(*plugin->GetText("DonateUsage"), *plugin->getConfig().buyCommand);
@@ -77,19 +96,11 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 	ArkApi::GetApiUtils().SendNotification(player, FColorList::Green, text_size, display_time, nullptr, *donate_str);
 }
 
-inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, const FString& category) {
+inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, int category_id) {
 	const float display_time = 15.0f;
 	const float text_size = 1.3f;
 
-	json packages = json({});
-
-	for (const auto& item : items_listing["categories"]) {
-		const std::string name = item["name"];
-		if (FString(name) == category) {
-			packages = item["packages"];
-			break;
-		}
-	}
+	json packages = FindPackages(category_id);
 
 	if (packages.empty()) {
 		ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr,
@@ -100,7 +111,7 @@ inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlaye
 	FString store_str = L"";
 
 	for (const auto& item : packages) {
-		const std::string id = item.value("id", "");
+		const int id = item.value("id", 0);
 		const std::string name = item.value("name", "");
 		const std::string price = item.value("price", "0");
 
@@ -109,4 +120,22 @@ inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlaye
 
 	ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr,
 	                                       *store_str);
+}
+
+inline json TebexBuyChatCommand::FindPackages(int category_id) {
+	for (const auto& item : items_listing["categories"]) {
+		int id = item["id"];
+		if (id == category_id) {
+			return item["packages"];
+		}
+
+		for (const auto& item2 : item.value("subcategories", json::array())) {
+			id = item2["id"];
+			if (id == category_id) {
+				return item2["packages"];
+			}
+		}
+	}
+
+	return json::array();
 }

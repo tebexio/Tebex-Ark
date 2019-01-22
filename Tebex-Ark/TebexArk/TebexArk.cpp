@@ -481,7 +481,13 @@ void Load() {
 
 	ArkApi::GetCommands().AddChatCommand(
 		plugin->getConfig().buyCommand, [plugin](AShooterPlayerController* player, FString* message, EChatSendMode::Type) {
-			TebexBuyChatCommand::ShowCategoriesCommand(plugin, player, message);
+			try {
+				TebexBuyChatCommand::ShowCategoriesCommand(plugin, player, message);
+			}
+			catch(const std::exception& exception) {
+				plugin->logError(exception.what());
+			}
+
 			ArkApi::GetApiUtils().SendServerMessage(player, FColorList::Red,
 			                                        *FString::Format(*plugin->GetText("BuyPackages"),
 			                                                         plugin->getWebstore().domain.ToString()));
