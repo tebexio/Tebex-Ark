@@ -4,6 +4,8 @@
 
 #include <Requests.h>
 
+#include "TebexBuyCommand.h"
+
 using json = nlohmann::json;
 
 class TebexSecret {
@@ -61,5 +63,8 @@ inline void TebexSecret::ApiCallback(TebexArk* plugin, std::string responseText)
 		plugin->logWarning(FString::Format(L"Your secret key has been validated! Webstore Name: {0}",
 		                                   json["account"]["name"].get<std::string>()));
 		plugin->setWebstore(json);
+
+		// Update items list
+		TebexBuyChatCommand::Call(plugin);
 	}
 }
