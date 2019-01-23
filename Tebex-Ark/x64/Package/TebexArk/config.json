@@ -8,12 +8,13 @@
   "secret":"",
   "Messages":{
     "CategoriesTitle":"{0} - Available Categories",
-    "PackagesTitle":"{0} - Available Packages In",
+    "PackagesTitle":"{0} - Available Packages In {1}",
     "BuyPackages":"To buy packages from our webstore, please visit {0}",
     "WrongCategory":"Invalid category name",
     "DonateUsage":"Use '{} [CategoryID]' command to see the list of items",
     "DonateSubUsage":"Use '{} buy [PackageID]' command to get a URL to purchase that item",
-    "ItemsFormat":"ID: {0} - {1}, Price: {2}\n",
-    "CategoriesFormat":"ID: {0} - {1}\n"
+    "ItemsFormat":"ID: {0} - {1}, Price: {3}{2}\n",
+    "CategoriesFormat":"ID: {0} - {1}\n",
+    "SubCategoriesFormat":" -- ID: {0} - {1}\n"
   }
 }

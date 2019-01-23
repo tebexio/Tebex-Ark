@@ -69,8 +69,8 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 	}
 
 	const float display_time = 15.0f;
-	const float text_size_title = 1.3f;
-	const float text_size = 1.0f;
+	const float text_size_title = 1.4f;
+	const float text_size = 1.1f;
 
 	FString store_str = L"";
 
@@ -84,7 +84,7 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 			id = item2["id"];
 			name = item2["name"];
 
-			store_str += FString::Format(*plugin->GetText("CategoriesFormat"), id, name);
+			store_str += FString::Format(*plugin->GetText("SubCategoriesFormat"), id, name);
 		}
 	}
 
@@ -98,7 +98,8 @@ inline void TebexBuyChatCommand::ShowCategoriesCommand(TebexArk* plugin, AShoote
 
 inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlayerController* player, int category_id) {
 	const float display_time = 15.0f;
-	const float text_size = 1.3f;
+	const float text_size_title = 1.4f;
+	const float text_size = 1.1f;
 
 	json packages = FindPackages(category_id);
 
@@ -115,9 +116,12 @@ inline void TebexBuyChatCommand::ShowtemsCommand(TebexArk* plugin, AShooterPlaye
 		const std::string name = item.value("name", "");
 		const std::string price = item.value("price", "0");
 
-		store_str += FString::Format(*plugin->GetText("ItemsFormat"), id, name, price);
+		store_str += FString::Format(*plugin->GetText("ItemsFormat"), id, name, price, plugin->getWebstore().currencySymbol.ToString());
 	}
 
+	FString title_str = FString::Format(*plugin->GetText("PackagesTitle"), plugin->getWebstore().name.ToString(), category_id);
+
+	ArkApi::GetApiUtils().SendNotification(player, FColorList::Green, text_size_title, display_time, nullptr, *title_str);
 	ArkApi::GetApiUtils().SendNotification(player, FColorList::Orange, text_size, display_time, nullptr,
 	                                       *store_str);
 }
