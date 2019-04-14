@@ -100,22 +100,18 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 			FString targetCommand = plugin->buildCommand(command["command"].get<std::string>(), playerName.ToString(),
 			                                             playerId, std::to_string(linkedPlayerIdField));
 
-			const int delay = command["conditions"]["delay"].get<int>();
-			if (delay == 0) {
-				plugin->logWarning(FString("Exec ") + targetCommand);
+			const int user_delay = command["conditions"].value("delay", 2 * exCount);
 
-				TebexArk::ConsoleCommand(player, targetCommand);
-			}
-			else {
-				API::Timer::Get().DelayExecute([plugin, steamId64, targetCommand]() {
-					AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
-					if (player != nullptr) {
-						plugin->logWarning(FString("Exec ") + targetCommand);
+			const int delay = user_delay <= 0 ? 2 * exCount : user_delay;
 
-						TebexArk::ConsoleCommand(player, targetCommand);
-					}
-				}, delay);
-			}
+			API::Timer::Get().DelayExecute([plugin, steamId64, targetCommand]() {
+				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
+				if (player != nullptr) {
+					plugin->logWarning(FString("Exec ") + targetCommand);
+
+					TebexArk::ConsoleCommand(player, targetCommand);
+				}
+			}, delay);
 
 			executedCommands.push_back(command["id"].get<int>());
 			exCount++;
