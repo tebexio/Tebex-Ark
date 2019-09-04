@@ -1,6 +1,7 @@
 #pragma once
 
 #include <future>
+#include <queue>
 
 #include "httplib.hpp"
 #include "picosha2.hpp"
@@ -12,17 +13,20 @@ public:
 	                  std::function<bool(std::string)> execFn);
 	bool startServer(std::string host, int port);
 	void Ping();
+	void Timer(float);
 	void PushListener();
-	bool HashValid(const httplib::Request& req);
+	bool HashValid(const httplib::Request& req) const;
 
 private:
 	httplib::Server svr;
 	std::function<void(std::string)> logFunction;
 	std::function<bool(std::string)> execFunction;
+	std::queue<std::string> requestsQueue;
 	std::string secretKey;
+	int timer{};
 };
 
-TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std::string)> logFn,
+inline TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std::string)> logFn,
                                      std::function<bool(std::string)> execFn) {
 	this->secretKey = secret;
 	this->logFunction = logFn;
@@ -30,7 +34,7 @@ TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std:
 	logFunction("Starting Tebex Push Command Server");
 }
 
-bool TebexPushCommands::startServer(std::string host, int port) {
+inline bool TebexPushCommands::startServer(std::string host, int port) {
 
 	this->Ping();
 	this->PushListener();
@@ -40,49 +44,65 @@ bool TebexPushCommands::startServer(std::string host, int port) {
 		this->svr.listen(host.c_str(), port);
 	}).detach();
 
+	//ArkApi::GetCommands().AddOnTimerCallback("TebexTimer", std::bind(&TebexPushCommands::Timer, this));
+	ArkApi::GetCommands().AddOnTickCallback("TebexTimer", std::bind(&TebexPushCommands::Timer, this, std::placeholders::_1));
+
 	return true;
 }
 
-void TebexPushCommands::Ping() {
+inline void TebexPushCommands::Ping() {
 	this->svr.Post("/ping", [this](const httplib::Request& req, httplib::Response& res) {
 		this->logFunction("POST /ping");
 		res.set_content("Connection Established!", "text/plain");
 	});
 }
 
-void TebexPushCommands::PushListener() {
+inline void TebexPushCommands::Timer(float) {
+	if (timer++ < 60)
+		return;
+
+	timer = 0;
+
+	while (!requestsQueue.empty()) {
+		if (this->execFunction(requestsQueue.front())) {
+			this->logFunction("Exec Done");
+		}
+		else {
+			this->logFunction("Exec Failed");
+		}
+
+		requestsQueue.pop();
+	}
+}
+
+inline void TebexPushCommands::PushListener() {
 	this->svr.Post("/", [this](const httplib::Request& req, httplib::Response& res) {
 		if (!this->HashValid(req)) {
 			res.set_content("Invalid signature", "text/plain");
 			res.status = 422;
 		}
 		else {
-			nlohmann::basic_json commands = nlohmann::json::parse("{}");
 			try {
-				commands = nlohmann::json::parse(req.body);
+				nlohmann::json::parse(req.body);
 			}
-			catch (nlohmann::detail::parse_error ex) {
+			catch (const nlohmann::detail::parse_error&) {
 				this->logFunction("Unable to parse JSON");
 				res.set_content("Invalid JSON", "text/plain");
 				res.status = 422;
 				return;
 			}
 
-			if (this->execFunction(req.body)) {
-				this->logFunction("Exec Done");
-				res.set_content("Commands executed", "text/plain");
-				res.status = 200;
-			}
-			else {
-				res.set_content("Error executing commands", "text/plain");
-				res.status = 500;
-			}
+			requestsQueue.push(req.body);
 
+			this->logFunction("Added push command to queue");
+			 
+			res.set_content("Command added", "text/plain");
+			res.status = 200;
 		}
 	});
 }
 
-bool TebexPushCommands::HashValid(const httplib::Request& req) {
+inline bool TebexPushCommands::HashValid(const httplib::Request& req) const {
 	std::string sig = req.get_header_value("X-Signature");
 	std::transform(sig.begin(), sig.end(), sig.begin(), ::tolower);
 

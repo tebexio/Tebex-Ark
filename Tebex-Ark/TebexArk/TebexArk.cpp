@@ -335,9 +335,9 @@ FString TebexArk::buildCommand(std::string command, std::string playerName, std:
 void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
 	FString result;
 
-#ifdef TEBEX_ARK
-	player->ConsoleCommand(&result, &command, true);
-#else // In Atlas only admins can execute cheat commands
+//#ifdef TEBEX_ARK
+//	player->ConsoleCommand(&result, &command, true);
+//#else // In Atlas only admins can execute cheat commands
 	const bool is_admin = player->bIsAdmin()(), is_cheat = player->bCheatPlayer()();
 	player->bIsAdmin() = true;
 	player->bCheatPlayer() = true;
@@ -346,7 +346,7 @@ void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
 
 	player->bIsAdmin() = is_admin;
 	player->bCheatPlayer() = is_cheat;
-#endif
+//#endif
 }
 
 /*FString getHttpRef() {
