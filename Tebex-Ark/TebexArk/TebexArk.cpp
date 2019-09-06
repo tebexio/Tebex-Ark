@@ -91,30 +91,45 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 			continue;
 		}
 
+		bool result = false;
+
+		const int commandId = command["id"].get<int>();
+
 		const int delay = command["delay"].get<int>();
 		if (delay == 0) {
 			logWarning(FString("Exec ") + targetCommand);
 			if (player != nullptr) {
-				ConsoleCommand(player, targetCommand);
+				result = ConsoleCommand(player, targetCommand, true);
 			}
 			else {
-				ConsoleCommand(firstPlayer, targetCommand);
+				result = ConsoleCommand(firstPlayer, targetCommand, true);
 			}
 		}
 		else {
-			API::Timer::Get().DelayExecute([this, steamId64, targetCommand]() {
+			API::Timer::Get().DelayExecute([this, steamId64, targetCommand, commandId]() {
 				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 				if (player != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
 
-					ConsoleCommand(player, targetCommand);
+					const bool result = ConsoleCommand(player, targetCommand, true);
+					if (result) {
+						TebexDeleteCommands::Call(this, { commandId });
 
-					this->logWarning("Done!");
+						this->logWarning("Done");
+					}
+					else {
+						this->logWarning("Execution wasn't successful");
+					}
 				}
 			}, delay);
 		}
 
-		executedCommands.push_back(command["id"].get<int>());
+		if (!result) {
+			commandCnt++;
+			continue;
+		}
+
+		executedCommands.push_back(commandId);
 		exCount++;
 
 		if (exCount % deleteAfter == 0) {
@@ -186,8 +201,8 @@ json TebexArk::getJson() const {
 	return json_config_;
 }
 
-FString TebexArk::GetText(const std::string& str) const {
-	return FString(ArkApi::Tools::Utf8Decode(json_config_.value("Messages", json::object()).value(str, "No message")).c_str());
+FString TebexArk::GetText(const std::string& str, const std::string& default_message) const {
+	return FString(ArkApi::Tools::Utf8Decode(json_config_.value("Messages", json::object()).value(str, default_message)).c_str());
 }
 
 void TebexArk::setConfig(const std::string& key, const std::string& value) {
@@ -332,21 +347,87 @@ FString TebexArk::buildCommand(std::string command, std::string playerName, std:
 	return FString(command);
 }
 
-void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
+int TebexArk::GetTotalInventoryItems(AShooterPlayerController* player) {
+	if (player && player->GetPlayerCharacter() && player->GetPlayerCharacter()->MyInventoryComponentField()) {
+		UPrimalInventoryComponent* inv = player->GetPlayerCharacter()->MyInventoryComponentField();
+
+		int totalAmount = 0;
+
+		for (UPrimalItem* item : inv->InventoryItemsField()) {
+			totalAmount += item->GetItemQuantity();
+		}
+
+		return totalAmount;
+	}
+
+	return 0;
+}
+
+bool IsCommandGiveItems(const FString& command) {
+	std::vector<FString> commands{
+		"GiveItem",
+		"GiveItemNum",
+		"GiveItemToPlayer",
+		"GiveItemNumToPlayer",
+		"GiveItemSet",
+		"GiveSlotItem",
+		"GiveSlotItemNum",
+		"GFI" 
+	};
+
+	for (const FString& cmd : commands)	{
+		if (command.StartsWith(cmd, ESearchCase::IgnoreCase))
+			return true;
+	}
+
+	return false;
+}
+
+bool TebexArk::ConsoleCommand(APlayerController* player, FString command, bool checkInventory) {
+	AShooterPlayerController* player_controller = static_cast<AShooterPlayerController*>(player);
+
+	int oldTotalAmount = 0;
+
+	if (checkInventory && !IsCommandGiveItems(command))	{
+		checkInventory = false;
+	}
+
+	if (checkInventory) {
+		oldTotalAmount = GetTotalInventoryItems(player_controller);
+	}
+
 	FString result;
 
 //#ifdef TEBEX_ARK
 //	player->ConsoleCommand(&result, &command, true);
 //#else // In Atlas only admins can execute cheat commands
-	const bool is_admin = player->bIsAdmin()(), is_cheat = player->bCheatPlayer()();
-	player->bIsAdmin() = true;
+	const bool is_cheat = player->bCheatPlayer()();
+	//player->bIsAdmin() = true;
 	player->bCheatPlayer() = true;
 
-	player->ConsoleCommand(&result, &command, true);
+	static_cast<APlayerController*>(player)->ConsoleCommand(&result, &command, false);
 
-	player->bIsAdmin() = is_admin;
+	//player->bIsAdmin() = is_admin;
 	player->bCheatPlayer() = is_cheat;
 //#endif
+
+	if (checkInventory) {
+		const int newTotalAmount = GetTotalInventoryItems(player_controller);
+
+		const bool check = newTotalAmount > oldTotalAmount;
+		if (!check) {
+			const time_t now = time(nullptr);
+			const time_t lastCalled = getLastCalled();
+			const int nextCheck = static_cast<int>(abs(getNextCheck() - (now - lastCalled)));
+
+			ArkApi::GetApiUtils().SendChatMessage(player_controller, GetText("Sender", "Tebex"), 
+				*GetText("FailedItem", "Failed to add item. Another attempt will be made in {} seconds."), nextCheck);
+		}
+
+		return check;
+	}
+
+	return true;
 }
 
 /*FString getHttpRef() {

@@ -94,7 +94,8 @@ inline void TebexPushCommands::PushListener() {
 
 			requestsQueue.push(req.body);
 
-			this->logFunction("Added push command to queue");
+			this->logFunction("Added to queue");
+			//this->logFunction(req.body);
 			 
 			res.set_content("Command added", "text/plain");
 			res.status = 200;

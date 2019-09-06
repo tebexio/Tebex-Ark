@@ -104,28 +104,38 @@ inline void TebexOnlineCommands::ApiCallback(TebexArk* plugin, std::string respo
 
 			const int delay = user_delay <= 0 ? 2 * exCount : user_delay;
 
-			API::Timer::Get().DelayExecute([plugin, steamId64, targetCommand]() {
+			const int commandId = command["id"].get<int>();
+
+			API::Timer::Get().DelayExecute([plugin, steamId64, targetCommand, commandId]() {
 				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 				if (player != nullptr) {
 					plugin->logWarning(FString("Exec ") + targetCommand);
 
-					TebexArk::ConsoleCommand(player, targetCommand);
+					const bool result = plugin->ConsoleCommand(player, targetCommand, true);
+					if (result) {
+						TebexDeleteCommands::Call(plugin, { commandId });
+
+						plugin->logWarning("Done");
+					}
+					else {
+						plugin->logWarning("Execution wasn't successful");
+					}
 				}
 			}, delay);
 
-			executedCommands.push_back(command["id"].get<int>());
+			//executedCommands.push_back(command["id"].get<int>());
 			exCount++;
 
-			if (exCount % deleteAfter == 0) {
-				TebexDeleteCommands::Call(plugin, executedCommands);
-				executedCommands.clear();
-			}
+			//if (exCount % deleteAfter == 0) {
+				//TebexDeleteCommands::Call(plugin, executedCommands);
+			//	executedCommands.clear();
+			//}
 		}
 
 		plugin->logWarning(FString::Format("{0} online commands executed", exCount));
-		if (exCount % deleteAfter != 0) {
-			TebexDeleteCommands::Call(plugin, executedCommands);
-			executedCommands.clear();
-		}
+		//if (exCount % deleteAfter != 0) {
+		//	TebexDeleteCommands::Call(plugin, executedCommands);
+		//	executedCommands.clear();
+		//}
 	}
 }
