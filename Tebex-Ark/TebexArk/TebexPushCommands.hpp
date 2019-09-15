@@ -5,7 +5,7 @@
 
 #include "httplib.hpp"
 #include "picosha2.hpp"
-#include "json.hpp"
+#include "TebexArk.h"
 
 class TebexPushCommands {
 public:
@@ -24,6 +24,7 @@ private:
 	std::queue<std::string> requestsQueue;
 	std::string secretKey;
 	int timer{};
+	std::mutex mutex;
 };
 
 inline TebexPushCommands::TebexPushCommands(std::string secret, std::function<void(std::string)> logFn,
@@ -44,7 +45,6 @@ inline bool TebexPushCommands::startServer(std::string host, int port) {
 		this->svr.listen(host.c_str(), port);
 	}).detach();
 
-	//ArkApi::GetCommands().AddOnTimerCallback("TebexTimer", std::bind(&TebexPushCommands::Timer, this));
 	ArkApi::GetCommands().AddOnTickCallback("TebexTimer", std::bind(&TebexPushCommands::Timer, this, std::placeholders::_1));
 
 	return true;
@@ -63,6 +63,10 @@ inline void TebexPushCommands::Timer(float) {
 
 	timer = 0;
 
+	const bool result = mutex.try_lock();
+	if (!result)
+		return;
+
 	while (!requestsQueue.empty()) {
 		if (this->execFunction(requestsQueue.front())) {
 			this->logFunction("Exec Done");
@@ -73,6 +77,8 @@ inline void TebexPushCommands::Timer(float) {
 
 		requestsQueue.pop();
 	}
+
+	mutex.unlock();
 }
 
 inline void TebexPushCommands::PushListener() {
@@ -82,8 +88,10 @@ inline void TebexPushCommands::PushListener() {
 			res.status = 422;
 		}
 		else {
+			nlohmann::json data;
+
 			try {
-				nlohmann::json::parse(req.body);
+				data = nlohmann::json::parse(req.body);
 			}
 			catch (const nlohmann::detail::parse_error&) {
 				this->logFunction("Unable to parse JSON");
@@ -92,6 +100,9 @@ inline void TebexPushCommands::PushListener() {
 				return;
 			}
 
+			std::lock_guard<std::mutex> lock(mutex);
+
+			// Use queue to solve threading problem
 			requestsQueue.push(req.body);
 
 			this->logFunction("Added to queue");

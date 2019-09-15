@@ -31,7 +31,7 @@ TebexArk::TebexArk() {
 	logger_ = Log::GetLog();
 
 	logWarning("Plugin Loading...");
-	last_called_ -= 14 * 60;
+	lastCalled_ -= 14 * 60;
 }
 
 bool TebexArk::parsePushCommands(const std::string& body) {
@@ -44,6 +44,12 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 
 	while (commandCnt < commands.size()) {
 		auto command = commands[commandCnt];
+
+		const int commandId = command["id"];
+
+		// Check if command already executed
+		if (executedCommandsId.find(commandId) != executedCommandsId.end())
+			continue;
 
 		this->logWarning(FString("Push Command Received: " + command["command"].get<std::string>()));
 
@@ -80,7 +86,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 		                                     ue4id);
 		std::string requireOnline = command["require_online"].get<std::string>();
 
-		if (requireOnline == "1" && player == nullptr) {
+		if (requireOnline == "1" && (player == nullptr || ArkApi::IApiUtils::IsPlayerDead(player))) {
 			commandCnt++;
 			continue;
 		}
@@ -92,8 +98,6 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 		}
 
 		bool result = false;
-
-		const int commandId = command["id"].get<int>();
 
 		const int delay = command["delay"].get<int>();
 		if (delay == 0) {
@@ -107,6 +111,10 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 		}
 		else {
 			API::Timer::Get().DelayExecute([this, steamId64, targetCommand, commandId]() {
+				// Check if command already executed
+				if (executedCommandsId.find(commandId) != executedCommandsId.end())
+					return;
+
 				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 				if (player != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
@@ -141,7 +149,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 	}
 
 	this->logWarning(FString::Format("{0} commands executed", exCount));
-	if (exCount % deleteAfter != 0) {
+	if (!executedCommands.empty()) {
 		TebexDeleteCommands::Call(this, executedCommands);
 		executedCommands.clear();
 	}
@@ -152,7 +160,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 bool TebexArk::loadServer() {
 	if (!serverLoaded_ && getConfig().enablePushCommands) {
 		logWarning("Loading HTTP Server Async....");
-		TebexPushCommands* pushCommands = new TebexPushCommands(
+		pushCommands_ = std::make_unique<TebexPushCommands>(
 			getConfig().secret.ToString(),
 			[this](std::string log) {
 				this->logWarning(FString(log));
@@ -161,7 +169,7 @@ bool TebexArk::loadServer() {
 				return this->parsePushCommands(body);
 			});
 
-		pushCommands->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
+		pushCommands_->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
 		serverLoaded_ = true;
 	}
 
@@ -236,7 +244,7 @@ std::string TebexArk::getGameType() const {
 }
 
 time_t TebexArk::getLastCalled() const {
-	return last_called_;
+	return lastCalled_;
 }
 
 int TebexArk::getNextCheck() const {
@@ -332,8 +340,8 @@ void TebexArk::setNextCheck(int newVal) {
 
 bool TebexArk::doCheck() {
 	const time_t now = time(nullptr);
-	if ((now - last_called_) > nextCheck_) {
-		last_called_ = time(nullptr);
+	if ((now - lastCalled_) > nextCheck_) {
+		lastCalled_ = time(nullptr);
 		return true;
 	}
 	return false;

@@ -6,12 +6,17 @@
 #include <API/Atlas/Atlas.h>
 #endif
 
+#include <set>
+
+#include "json.hpp"
+
 #include "WebstoreInfo.h"
 #include "Config.h"
-#include "json.hpp"
 
 using json = nlohmann::json;
 using Config = tebexConfig::Config;
+
+class TebexPushCommands;
 
 struct PendingCommand {
 	int pluginPlayerId;
@@ -19,6 +24,9 @@ struct PendingCommand {
 };
 
 inline TArray<PendingCommand> pendingCommands;
+
+// Store executed commands id, used to solve multiple executions problem
+inline std::set<int> executedCommandsId;
 
 class TebexArk {
 public:
@@ -56,6 +64,8 @@ private:
 	Config config_;
 	json json_config_;
 	int nextCheck_ = 15 * 60;
-	time_t last_called_ = time(nullptr);
+	time_t lastCalled_ = time(nullptr);
 	bool serverLoaded_ = false;
+
+	std::unique_ptr<TebexPushCommands> pushCommands_;
 };
