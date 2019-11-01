@@ -70,14 +70,14 @@ inline void TebexOfflineCommands::ApiCallback(TebexArk* plugin, std::string resp
 				if (delay == 0) {
 					plugin->logWarning(FString("Exec ") + targetCommand);
 
-					TebexArk::ConsoleCommand(firstPlayer, targetCommand);
+					plugin->ConsoleCommand(firstPlayer, targetCommand, false);
 				}
 				else {
 					API::Timer::Get().DelayExecute([plugin, targetCommand]() {
 						APlayerController* firstPlayer = ArkApi::GetApiUtils().GetWorld()->GetFirstPlayerController();
 						if (firstPlayer != nullptr) {
 							plugin->logWarning(FString("Exec ") + targetCommand);
-							TebexArk::ConsoleCommand(firstPlayer, targetCommand);
+							plugin->ConsoleCommand(firstPlayer, targetCommand, false);
 						}
 					}, delay);
 				}

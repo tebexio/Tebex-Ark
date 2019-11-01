@@ -6,12 +6,17 @@
 #include <API/Atlas/Atlas.h>
 #endif
 
+#include <set>
+
+#include "json.hpp"
+
 #include "WebstoreInfo.h"
 #include "Config.h"
-#include "json.hpp"
 
 using json = nlohmann::json;
 using Config = tebexConfig::Config;
+
+class TebexPushCommands;
 
 struct PendingCommand {
 	int pluginPlayerId;
@@ -19,6 +24,9 @@ struct PendingCommand {
 };
 
 inline TArray<PendingCommand> pendingCommands;
+
+// Store executed commands id, used to solve multiple executions problem
+inline std::set<int> executedCommandsId;
 
 class TebexArk {
 public:
@@ -30,7 +38,7 @@ public:
 	WebstoreInfo getWebstore() const;
 	Config getConfig() const;
 	json getJson() const;
-	FString GetText(const std::string& str) const;
+	FString GetText(const std::string& str, const std::string& default_message = "No message") const;
 	void setConfig(const std::string& key, const std::string& value);
 	void readConfig(const std::string& address);
 	std::string getSecret(const json& config, const std::string& address) const;
@@ -44,7 +52,8 @@ public:
 	int getNextCheck() const;
 
 	static FString buildCommand(std::string command, std::string playerName, std::string playerId, std::string UE4ID);
-	static void ConsoleCommand(APlayerController* player, FString command);
+	static int GetTotalInventoryItems(AShooterPlayerController* player);
+	bool ConsoleCommand(APlayerController* player, FString command, bool checkInventory);
 
 private:
 	static void ReplaceStringInPlace(std::string& subject, const std::string& search, const std::string& replace);
@@ -55,6 +64,8 @@ private:
 	Config config_;
 	json json_config_;
 	int nextCheck_ = 15 * 60;
-	time_t last_called_ = time(nullptr);
+	time_t lastCalled_ = time(nullptr);
 	bool serverLoaded_ = false;
+
+	std::unique_ptr<TebexPushCommands> pushCommands_;
 };

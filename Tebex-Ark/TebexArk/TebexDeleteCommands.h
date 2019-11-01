@@ -17,6 +17,9 @@ inline void TebexDeleteCommands::Call(TebexArk* plugin, const std::list<int>& co
 
 	for (auto const& id : commandIds) {
 		deleteUrl += FString::Format("ids[]={0}&", id);
+
+		// Save command ID
+		executedCommandsId.insert(id);
 	}
 
 	const std::string url = (plugin->getConfig().baseUrl + L"/queue?" + deleteUrl).ToString();

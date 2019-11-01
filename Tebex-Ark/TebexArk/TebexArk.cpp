@@ -31,7 +31,7 @@ TebexArk::TebexArk() {
 	logger_ = Log::GetLog();
 
 	logWarning("Plugin Loading...");
-	last_called_ -= 14 * 60;
+	lastCalled_ -= 14 * 60;
 }
 
 bool TebexArk::parsePushCommands(const std::string& body) {
@@ -44,6 +44,12 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 
 	while (commandCnt < commands.size()) {
 		auto command = commands[commandCnt];
+
+		const int commandId = command["id"];
+
+		// Check if command already executed
+		if (executedCommandsId.find(commandId) != executedCommandsId.end())
+			continue;
 
 		this->logWarning(FString("Push Command Received: " + command["command"].get<std::string>()));
 
@@ -80,7 +86,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 		                                     ue4id);
 		std::string requireOnline = command["require_online"].get<std::string>();
 
-		if (requireOnline == "1" && player == nullptr) {
+		if (requireOnline == "1" && (player == nullptr || ArkApi::IApiUtils::IsPlayerDead(player))) {
 			commandCnt++;
 			continue;
 		}
@@ -91,30 +97,47 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 			continue;
 		}
 
+		bool result = false;
+
 		const int delay = command["delay"].get<int>();
 		if (delay == 0) {
 			logWarning(FString("Exec ") + targetCommand);
 			if (player != nullptr) {
-				ConsoleCommand(player, targetCommand);
+				result = ConsoleCommand(player, targetCommand, true);
 			}
 			else {
-				ConsoleCommand(firstPlayer, targetCommand);
+				result = ConsoleCommand(firstPlayer, targetCommand, true);
 			}
 		}
 		else {
-			API::Timer::Get().DelayExecute([this, steamId64, targetCommand]() {
+			API::Timer::Get().DelayExecute([this, steamId64, targetCommand, commandId]() {
+				// Check if command already executed
+				if (executedCommandsId.find(commandId) != executedCommandsId.end())
+					return;
+
 				AShooterPlayerController* player = ArkApi::GetApiUtils().FindPlayerFromSteamId(steamId64);
 				if (player != nullptr) {
 					this->logWarning(FString("Exec ") + targetCommand);
 
-					ConsoleCommand(player, targetCommand);
+					const bool result = ConsoleCommand(player, targetCommand, true);
+					if (result) {
+						TebexDeleteCommands::Call(this, { commandId });
 
-					this->logWarning("Done!");
+						this->logWarning("Done");
+					}
+					else {
+						this->logWarning("Execution wasn't successful");
+					}
 				}
 			}, delay);
 		}
 
-		executedCommands.push_back(command["id"].get<int>());
+		if (!result) {
+			commandCnt++;
+			continue;
+		}
+
+		executedCommands.push_back(commandId);
 		exCount++;
 
 		if (exCount % deleteAfter == 0) {
@@ -126,7 +149,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 	}
 
 	this->logWarning(FString::Format("{0} commands executed", exCount));
-	if (exCount % deleteAfter != 0) {
+	if (!executedCommands.empty()) {
 		TebexDeleteCommands::Call(this, executedCommands);
 		executedCommands.clear();
 	}
@@ -137,7 +160,7 @@ bool TebexArk::parsePushCommands(const std::string& body) {
 bool TebexArk::loadServer() {
 	if (!serverLoaded_ && getConfig().enablePushCommands) {
 		logWarning("Loading HTTP Server Async....");
-		TebexPushCommands* pushCommands = new TebexPushCommands(
+		pushCommands_ = std::make_unique<TebexPushCommands>(
 			getConfig().secret.ToString(),
 			[this](std::string log) {
 				this->logWarning(FString(log));
@@ -146,7 +169,7 @@ bool TebexArk::loadServer() {
 				return this->parsePushCommands(body);
 			});
 
-		pushCommands->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
+		pushCommands_->startServer(this->getConfig().ipPushCommands.ToString(), this->getConfig().portPushCommands);
 		serverLoaded_ = true;
 	}
 
@@ -186,8 +209,8 @@ json TebexArk::getJson() const {
 	return json_config_;
 }
 
-FString TebexArk::GetText(const std::string& str) const {
-	return FString(ArkApi::Tools::Utf8Decode(json_config_.value("Messages", json::object()).value(str, "No message")).c_str());
+FString TebexArk::GetText(const std::string& str, const std::string& default_message) const {
+	return FString(ArkApi::Tools::Utf8Decode(json_config_.value("Messages", json::object()).value(str, default_message)).c_str());
 }
 
 void TebexArk::setConfig(const std::string& key, const std::string& value) {
@@ -221,7 +244,7 @@ std::string TebexArk::getGameType() const {
 }
 
 time_t TebexArk::getLastCalled() const {
-	return last_called_;
+	return lastCalled_;
 }
 
 int TebexArk::getNextCheck() const {
@@ -317,8 +340,8 @@ void TebexArk::setNextCheck(int newVal) {
 
 bool TebexArk::doCheck() {
 	const time_t now = time(nullptr);
-	if ((now - last_called_) > nextCheck_) {
-		last_called_ = time(nullptr);
+	if ((now - lastCalled_) > nextCheck_) {
+		lastCalled_ = time(nullptr);
 		return true;
 	}
 	return false;
@@ -332,21 +355,87 @@ FString TebexArk::buildCommand(std::string command, std::string playerName, std:
 	return FString(command);
 }
 
-void TebexArk::ConsoleCommand(APlayerController* player, FString command) {
+int TebexArk::GetTotalInventoryItems(AShooterPlayerController* player) {
+	if (player && player->GetPlayerCharacter() && player->GetPlayerCharacter()->MyInventoryComponentField()) {
+		UPrimalInventoryComponent* inv = player->GetPlayerCharacter()->MyInventoryComponentField();
+
+		int totalAmount = 0;
+
+		for (UPrimalItem* item : inv->InventoryItemsField()) {
+			totalAmount += item->GetItemQuantity();
+		}
+
+		return totalAmount;
+	}
+
+	return 0;
+}
+
+bool IsCommandGiveItems(const FString& command) {
+	std::vector<FString> commands{
+		"GiveItem",
+		"GiveItemNum",
+		"GiveItemToPlayer",
+		"GiveItemNumToPlayer",
+		"GiveItemSet",
+		"GiveSlotItem",
+		"GiveSlotItemNum",
+		"GFI" 
+	};
+
+	for (const FString& cmd : commands)	{
+		if (command.StartsWith(cmd, ESearchCase::IgnoreCase))
+			return true;
+	}
+
+	return false;
+}
+
+bool TebexArk::ConsoleCommand(APlayerController* player, FString command, bool checkInventory) {
+	AShooterPlayerController* player_controller = static_cast<AShooterPlayerController*>(player);
+
+	int oldTotalAmount = 0;
+
+	if (checkInventory && !IsCommandGiveItems(command))	{
+		checkInventory = false;
+	}
+
+	if (checkInventory) {
+		oldTotalAmount = GetTotalInventoryItems(player_controller);
+	}
+
 	FString result;
 
 //#ifdef TEBEX_ARK
 //	player->ConsoleCommand(&result, &command, true);
 //#else // In Atlas only admins can execute cheat commands
-	const bool is_admin = player->bIsAdmin()(), is_cheat = player->bCheatPlayer()();
-	player->bIsAdmin() = true;
+	const bool is_cheat = player->bCheatPlayer()();
+	//player->bIsAdmin() = true;
 	player->bCheatPlayer() = true;
 
-	player->ConsoleCommand(&result, &command, true);
+	static_cast<APlayerController*>(player)->ConsoleCommand(&result, &command, false);
 
-	player->bIsAdmin() = is_admin;
+	//player->bIsAdmin() = is_admin;
 	player->bCheatPlayer() = is_cheat;
 //#endif
+
+	if (checkInventory) {
+		const int newTotalAmount = GetTotalInventoryItems(player_controller);
+
+		const bool check = newTotalAmount > oldTotalAmount;
+		if (!check) {
+			const time_t now = time(nullptr);
+			const time_t lastCalled = getLastCalled();
+			const int nextCheck = static_cast<int>(abs(getNextCheck() - (now - lastCalled)));
+
+			ArkApi::GetApiUtils().SendChatMessage(player_controller, GetText("Sender", "Tebex"), 
+				*GetText("FailedItem", "Failed to add item. Another attempt will be made in {} seconds."), nextCheck);
+		}
+
+		return check;
+	}
+
+	return true;
 }
 
 /*FString getHttpRef() {
